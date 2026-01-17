@@ -16,20 +16,17 @@ export const onboardingController = async (req, res) => {
             return res.status(400).json({ message: "Clerk ID is required" });
         }
 
-        await db
-            .collection("users")
-            .doc(clerkId)
-            .set(
-                {
-                    role,
-                    experienceLevel,
-                    jobTypes,
-                    skills,
-                    companies,
-                    countries,
-                },
-                { merge: true }
-            );
+        await db.collection("users").doc(clerkId).set(
+            {
+                role,
+                experienceLevel,
+                jobTypes,
+                skills,
+                companies,
+                countries,
+            },
+            { merge: true },
+        );
 
         console.log("Onboarding Data:", {
             role,

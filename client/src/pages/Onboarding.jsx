@@ -1,11 +1,14 @@
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Select } from "@/components/ui/select"
+﻿import { Badge } from "@/ui/badge"
+import { Button } from "@/ui/button"
+import { Select } from "@/ui/select"
+import { Input } from "@/ui/input"
+import { Textarea } from "@/ui/textarea"
 import { useUser } from "@clerk/clerk-react"
 import axios from "axios"
-import { FileText, Loader2, X } from "lucide-react"
+import { X, Briefcase, User, Loader2, Globe, MapPin, Building2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { Card, CardContent } from "@/ui/card"
 
 const rolesList = [
     "Frontend Developer", "Backend Developer", "Fullstack Developer",
@@ -25,42 +28,17 @@ const skillsList = [
     "React Native"
 ]
 
-const countriesList = [
-    "United States", "United Kingdom", "Canada", "Germany", "India", "Australia",
-    "Remote", "France", "Netherlands", "Singapore", "Japan", "Brazil",
-    "Sweden", "Switzerland", "Ireland", "Spain", "Italy"
-]
+// New lists for Recruiters
+const industryList = [
+    "Technology", "Finance", "Healthcare", "Education", "E-commerce",
+    "Consulting", "Media", "Logistics", "Energy", "Manufacturing",
+    "Real Estate", "Non-Profit", "Other"
+];
 
-const companiesList = [
-    "Airbnb", "Dropbox", "Pinterest", "Reddit", "Twilio", "HubSpot",
-    "Notion", "Zapier", "Asana", "Lyft", "Figma", "Cloudflare",
-    "Postman", "Miro", "Mixpanel", "Stripe", "Coinbase", "Robinhood",
-    "Instacart", "DoorDash", "Slack", "Zoom"
-]
+const companySizeList = [
+    "1-10", "11-50", "51-200", "201-500", "501-1000", "1000+"
+];
 
-// Mapped for logic checks (Key = Keyword in Job Title/Desc, Value = Your Category)
-const experienceLevelsList = {
-    "intern": "Internship",
-    "co-op": "Internship",
-    "graduate": "Entry Level",
-    "entry": "Entry Level",
-    "junior": "Junior (1-3 yrs)",
-    "associate": "Junior (1-3 yrs)",
-    "mid": "Mid Level (3-5 yrs)",
-    "senior": "Senior (5+ yrs)",
-    "staff": "Senior (5+ yrs)",
-    "principal": "Senior (5+ yrs)",
-    "lead": "Lead / Manager",
-    "manager": "Lead / Manager",
-    "head": "Lead / Manager",
-    "director": "Lead / Manager"
-};
-
-const experienceOptions = [...new Set(Object.values(experienceLevelsList))]
-
-const jobTypesList = [
-    "Full-time", "Part-time", "Contract", "Freelance", "Internship"
-]
 
 const MultiSelect = ({ options, value, onChange, placeholder, label }) => {
     const [query, setQuery] = useState("")
@@ -74,7 +52,6 @@ const MultiSelect = ({ options, value, onChange, placeholder, label }) => {
         )
     }, [options, query, value])
 
-    // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (containerRef.current && !containerRef.current.contains(event.target)) {
@@ -160,118 +137,84 @@ const MultiSelect = ({ options, value, onChange, placeholder, label }) => {
 const Onboarding = () => {
     const { user } = useUser()
     const navigate = useNavigate()
-    const [selectedRole, setSelectedRole] = useState("")
-    const [selectedExperienceLevel, setSelectedExperienceLevel] = useState("")
-    const [selectedJobTypes, setSelectedJobTypes] = useState([])
-    const [selectedSkills, setSelectedSkills] = useState([])
-    const [selectedCountries, setSelectedCountries] = useState([])
-    const [selectedCompanies, setSelectedCompanies] = useState([])
+
+    const [step, setStep] = useState('role-selection');
+    const [userType, setUserType] = useState(''); // 'Candidate' | 'Recruiter'
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isUploading, setIsUploading] = useState(false);
+
+    // Candidate State
+    const [selectedRole, setSelectedRole] = useState("")
+    const [selectedSkills, setSelectedSkills] = useState([])
+
+    // Recruiter State
+    const [companyName, setCompanyName] = useState("");
+    const [companyWebsite, setCompanyWebsite] = useState("");
+    const [companyIndustry, setCompanyIndustry] = useState("");
+    const [companySize, setCompanySize] = useState("");
+    const [companyBio, setCompanyBio] = useState("");
+    const [companyLocation, setCompanyLocation] = useState("");
 
 
-    const toggleJobType = (type) => {
-        if (selectedJobTypes.includes(type)) {
-            setSelectedJobTypes(prev => prev.filter(t => t !== type))
-        } else {
-            setSelectedJobTypes(prev => [...prev, type])
-        }
+    const handleRoleSelect = (role) => {
+        setUserType(role);
+        setStep('details');
     }
-
-    const toggleCountry = (country) => {
-        if (selectedCountries.includes(country)) {
-            setSelectedCountries(prev => prev.filter(c => c !== country))
-        } else {
-            setSelectedCountries(prev => [...prev, country])
-        }
-    }
-
-    const toggleCompany = (company) => {
-        if (selectedCompanies.includes(company)) {
-            setSelectedCompanies(prev => prev.filter(c => c !== company))
-        } else {
-            setSelectedCompanies(prev => [...prev, company])
-        }
-    }
-
-    const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setIsUploading(true);
-        const data = new FormData();
-        data.append('file', file);
-
-        try {
-            const response = await axios.post('http://localhost:5678/webhook-test/parse-resume', data, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            console.log("Resume Parsed Data:", response.data);
-
-            const payload = {
-                ...response.data.resumeData,
-                clerkId: user?.id,
-                imageUrl: user?.imageUrl
-            }
-
-            const res = await axios.post(`${import.meta.env.VITE_SERVER_API}/api/user/user-profile`, payload)
-
-            setSelectedRole(response.data.jobPreferences.selectedRole);
-            setSelectedExperienceLevel(response.data.jobPreferences.selectedExperienceLevel);
-            setSelectedJobTypes(response.data.jobPreferences.selectedJobTypes)
-            setSelectedSkills(response.data.jobPreferences.selectedSkills)
-            
-        } catch (error) {
-            console.error("Error parsing resume:", error);
-        } finally {
-            setIsUploading(false);
-        }
-    };
 
     const handleSubmit = async () => {
-        if (!selectedRole || !selectedExperienceLevel || selectedJobTypes.length === 0) return
-
         setIsSubmitting(true)
         try {
-            const onboardingData = {
-                role: selectedRole,
-                experienceLevel: selectedExperienceLevel,
-                jobTypes: selectedJobTypes,
-                skills: selectedSkills,
-                countries: selectedCountries,
-                companies: selectedCompanies
-            }
-            console.log("Onboarding Data:", onboardingData)
+            let backendPayload = {};
+            const finalRole = userType === 'Candidate' ? 'Candidate' : 'Recruiter';
 
+            if (userType === 'Candidate') {
+                if (!selectedRole) return;
+
+                backendPayload = {
+                    role: finalRole,
+                    jobTitle: selectedRole,
+                    skills: selectedSkills,
+                    experienceLevel: "Entry Level",
+                    jobTypes: ["Contract", "Freelance"],
+                    companies: [],
+                    countries: []
+                };
+
+            } else {
+                if (!companyName || !companyIndustry) return;
+
+                backendPayload = {
+                    role: finalRole,
+                    companyName,
+                    website: companyWebsite,
+                    industry: companyIndustry,
+                    companySize: companySize,
+                    bio: companyBio,
+                    location: companyLocation
+                };
+            }
+
+            // 1. Update Clerk Metadata
             if (user) {
                 try {
                     await user.update({
                         unsafeMetadata: {
                             onboarded: true,
-                            ...onboardingData
+                            role: finalRole,
+                            ...(userType === 'Candidate' ? {} : { companyName })
                         }
                     })
                 } catch (err) {
                     console.warn("Could not update metadata:", err)
                 }
             }
+
+            // 2. Save Detailed Profile to Backend
             await axios.post(`${import.meta.env.VITE_SERVER_API}/api/user/onboarding`, {
                 clerkId: user.id,
-                ...onboardingData
+                ...backendPayload
             })
 
-            try {
-                await axios.post('http://localhost:5678/webhook-test/get-filtered-jobs', {
-                    userId: user.id,
-                    ...onboardingData
-                })
-            } catch (webhookErr) {
-                console.warn("Webhook failed:", webhookErr)
-            }
-
+            // Redirect
             navigate("/dashboard")
         } catch (error) {
             console.error("Onboarding failed:", error)
@@ -280,177 +223,194 @@ const Onboarding = () => {
         }
     }
 
+    if (step === 'role-selection') {
+        return (
+            <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex flex-col items-center justify-center p-4 md:p-8">
+                <div className="text-center mb-10 space-y-4">
+                    <h1 className="text-4xl font-extrabold tracking-tight">Welcome to SoHired</h1>
+                    <p className="text-muted-foreground text-lg">How would you like to use the platform?</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
+                    <Card
+                        className="cursor-pointer hover:border-primary hover:shadow-lg transition-all duration-300 group relative overflow-hidden h-[300px] flex items-center justify-center p-6 bg-white dark:bg-neutral-950"
+                        onClick={() => handleRoleSelect('Candidate')}
+                    >
+                        <CardContent className="flex flex-col items-center text-center gap-6 z-10">
+                            <div className="w-20 h-20 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                <User className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-bold">I am a Developer / Designer</h3>
+                                <p className="text-muted-foreground">Find projects, submit proposals, and get hired.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="cursor-pointer hover:border-primary hover:shadow-lg transition-all duration-300 group relative overflow-hidden h-[300px] flex items-center justify-center p-6 bg-white dark:bg-neutral-950"
+                        onClick={() => handleRoleSelect('Recruiter')}
+                    >
+                        <CardContent className="flex flex-col items-center text-center gap-6 z-10">
+                            <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                <Briefcase className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-bold">I am Hiring</h3>
+                                <p className="text-muted-foreground">Post requirements and connect with talent.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex flex-col items-center justify-center p-4 md:p-8">
-            <div className="w-full max-w-5xl bg-white dark:bg-neutral-950 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-6 md:p-10 animate-in fade-in zoom-in duration-500">
+            <div className="w-full max-w-2xl bg-white dark:bg-neutral-950 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-6 md:p-10 animate-in fade-in zoom-in duration-500">
+                <Button variant="ghost" className="mb-6 px-0 hover:bg-transparent text-muted-foreground" onClick={() => setStep('role-selection')}>← Back</Button>
+
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold bg-linear-to-r from-neutral-900 to-neutral-600 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent mb-3">
-                        Welcome, {user?.firstName || "there"}!
+                        {userType === 'Candidate' ? "Your Profile" : "Organization Details"}
                     </h1>
                     <p className="text-neutral-500 dark:text-neutral-400">
-                        Help us tailor your job feed by answering a few quick questions.
+                        {userType === 'Candidate' ? "Tell us about your expertise to match you with the right projects." : "Tell us about your company to attract the best talent."}
                     </p>
                 </div>
 
-                <div className="flex justify-end mb-4">
-                    <input
-                        type="file"
-                        id="resume-upload"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx"
-                        onChange={handleFileUpload}
-                    />
-                    <label htmlFor="resume-upload">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 gap-2 cursor-pointer"
-                            onClick={() => document.getElementById('resume-upload').click()}
-                            disabled={isUploading}
-                        >
-                            {isUploading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <FileText className="h-4 w-4" />
-                            )}
-                            {isUploading ? "Parsing Resume..." : "Import from Resume"}
-                        </Button>
-                    </label>
-                </div>
-
-                <div className="space-y-8">
-                    {/* Top Section: Role & Experience */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {userType === 'Candidate' ? (
+                    <div className="space-y-8">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                Desired Role <span className="text-red-500">*</span>
+                                Primary Role <span className="text-red-500">*</span>
                             </label>
                             <Select
                                 value={selectedRole}
                                 onChange={setSelectedRole}
                                 options={rolesList}
-                                placeholder="Select a role"
+                                placeholder="Select your main role"
                             />
+                        </div>
+
+                        <MultiSelect
+                            label="Core Skills / Tech Stack"
+                            placeholder="Type to search skills..."
+                            options={skillsList}
+                            value={selectedSkills}
+                            onChange={setSelectedSkills}
+                        />
+
+                        <div className="pt-4 flex justify-end">
+                            <Button
+                                size="lg"
+                                onClick={handleSubmit}
+                                disabled={!selectedRole || isSubmitting}
+                                className="w-full md:w-auto min-w-[200px]"
+                            >
+                                {isSubmitting ? <Loader2 className="animate-spin" /> : "Complete Setup"}
+                            </Button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Company Name <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        className="pl-9"
+                                        placeholder="e.g. Acme Inc."
+                                        value={companyName}
+                                        onChange={(e) => setCompanyName(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Website
+                                </label>
+                                <div className="relative">
+                                    <Globe className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        className="pl-9"
+                                        placeholder="https://acme.com"
+                                        value={companyWebsite}
+                                        onChange={(e) => setCompanyWebsite(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Industry <span className="text-red-500">*</span>
+                                </label>
+                                <Select
+                                    value={companyIndustry}
+                                    onChange={setCompanyIndustry}
+                                    options={industryList}
+                                    placeholder="Select Industry"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Company Size
+                                </label>
+                                <Select
+                                    value={companySize}
+                                    onChange={setCompanySize}
+                                    options={companySizeList}
+                                    placeholder="Select Size"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                Experience Level <span className="text-red-500">*</span>
+                                Headquarters / Location
                             </label>
-                            <Select
-                                value={selectedExperienceLevel}
-                                onChange={setSelectedExperienceLevel}
-                                options={experienceOptions}
-                                placeholder="Select level"
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    className="pl-9"
+                                    placeholder="e.g. San Francisco, CA"
+                                    value={companyLocation}
+                                    onChange={(e) => setCompanyLocation(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                About Company
+                            </label>
+                            <Textarea
+                                placeholder="Briefly describe your company's mission and culture..."
+                                className="min-h-[100px]"
+                                value={companyBio}
+                                onChange={(e) => setCompanyBio(e.target.value)}
                             />
                         </div>
-                    </div>
 
-                    {/* Job Types - Pills */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                            Job Type <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                            {jobTypesList.map((type) => {
-                                const isSelected = selectedJobTypes.includes(type)
-                                return (
-                                    <button
-                                        key={type}
-                                        onClick={() => toggleJobType(type)}
-                                        className={`
-                                            px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border
-                                            ${isSelected
-                                                ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white shadow-sm"
-                                                : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"}
-                                        `}
-                                    >
-                                        {type}
-                                    </button>
-                                )
-                            })}
+                        <div className="pt-4 flex justify-end">
+                            <Button
+                                size="lg"
+                                onClick={handleSubmit}
+                                disabled={!companyName || !companyIndustry || isSubmitting}
+                                className="w-full md:w-auto min-w-[200px]"
+                            >
+                                {isSubmitting ? <Loader2 className="animate-spin" /> : "Create Workspace"}
+                            </Button>
                         </div>
                     </div>
-
-                    <div className="h-px bg-neutral-100 dark:bg-neutral-800" />
-
-                    {/* Multi-Select for Skills */}
-                    <MultiSelect
-                        label="Key Skills"
-                        placeholder="Type to search skills (e.g. React, Python)..."
-                        options={skillsList}
-                        value={selectedSkills}
-                        onChange={setSelectedSkills}
-                    />
-
-                    {/* Countries - Buttons */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                            Preferred Countries
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                            {countriesList.map((country) => {
-                                const isSelected = selectedCountries.includes(country)
-                                return (
-                                    <button
-                                        key={country}
-                                        onClick={() => toggleCountry(country)}
-                                        className={`
-                                            px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border
-                                            ${isSelected
-                                                ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white shadow-sm"
-                                                : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"}
-                                        `}
-                                    >
-                                        {country}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Companies - Buttons */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                            Target Companies
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                            {companiesList.map((company) => {
-                                const isSelected = selectedCompanies.includes(company)
-                                return (
-                                    <button
-                                        key={company}
-                                        onClick={() => toggleCompany(company)}
-                                        className={`
-                                            px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border
-                                            ${isSelected
-                                                ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white shadow-sm"
-                                                : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"}
-                                        `}
-                                    >
-                                        {company}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="pt-4 flex justify-end">
-                        <Button
-                            size="lg"
-                            onClick={handleSubmit}
-                            disabled={!selectedRole || !selectedExperienceLevel || selectedJobTypes.length === 0 || isSubmitting}
-                            className="w-full md:w-auto min-w-[200px]"
-                        >
-                            {isSubmitting ? "Saving..." : "Start Exploring Jobs"}
-                        </Button>
-                    </div>
-                </div>
+                )}
             </div>
-
-            <p className="mt-8 text-neutral-400 text-sm text-center">
-                You can always update these preferences later in Settings.
-            </p>
         </div>
     )
 }

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Folder, Forward, MoreHorizontal, Trash2 } from "lucide-react";
 
@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/ui/dropdown-menu"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -17,7 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from "@/ui/sidebar"
 
 export function NavProjects({
   projects
@@ -74,3 +74,4 @@ export function NavProjects({
     </SidebarGroup>
   );
 }
+

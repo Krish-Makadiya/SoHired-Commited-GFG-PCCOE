@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+﻿import { Button } from '@/ui/button';
 import { CheckCircleIcon } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, XAxis } from 'recharts';
 import { Link } from 'react-router-dom';
@@ -9,8 +9,8 @@ import {
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+} from '@/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/ui/chart';
 
 export function PricingWithChart() {
 	return (
@@ -36,7 +36,7 @@ export function PricingWithChart() {
 								Job Seeker
 							</h2>
 							<span className="my-3 block text-3xl font-bold text-light-primary-text dark:text-dark-primary-text">
-								₹0
+								â‚¹0
 							</span>
 							<p className="text-light-secondary-text dark:text-dark-secondary-text text-sm">
 								Perfect for testing the waters.
@@ -72,7 +72,7 @@ export function PricingWithChart() {
 						<div>
 							<h2 className="text-xl font-semibold text-light-primary-text dark:text-dark-primary-text">Career Accelerator</h2>
 							<span className="my-3 block text-3xl font-bold text-light-primary dark:text-dark-primary">
-								₹299<span className="text-base font-medium text-light-secondary-text dark:text-dark-secondary-text">/mo</span>
+								â‚¹299<span className="text-base font-medium text-light-secondary-text dark:text-dark-secondary-text">/mo</span>
 							</span>
 							<p className="text-light-secondary-text dark:text-dark-secondary-text text-sm">
 								For serious candidates who want offers.
@@ -174,3 +174,4 @@ function InterestChart() {
 		</Card>
 	);
 }
+

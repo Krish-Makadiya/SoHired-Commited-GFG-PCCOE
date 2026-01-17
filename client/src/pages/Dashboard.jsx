@@ -1,18 +1,25 @@
-import { SwipeableJobCard } from "@/components/SwipeableJobCard";
-import { Button } from "@/components/ui/button";
+﻿import { SwipeableJobCard } from "@/components/SwipeableJobCard";
+import { Button } from "@/ui/button";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import axios from "axios";
 import { AnimatePresence } from "framer-motion";
 import { RefreshCcw, Sparkles, Target, Users, Zap } from "lucide-react";
 import { useCallback, useEffect, useState, useRef } from "react";
+import RecruiterDashboard from "./Recruiter/RecruiterDashboard";
 
 const Dashboard = () => {
+    const { user } = useUser();
+
+    // Role-based Render
+    if (user?.unsafeMetadata?.role === 'Recruiter') {
+        return <RecruiterDashboard />;
+    }
+
     const [jobs, setJobs] = useState([]);
     const [page, setPage] = useState(1);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const swipeQueue = useRef([]);
-    const { user } = useUser();
 
     const flushSwipes = useCallback(async () => {
         if (!user || swipeQueue.current.length === 0) return;
@@ -71,7 +78,7 @@ const Dashboard = () => {
 
     const handleSwipe = async (direction, job) => {
         if (direction === "right") {
-            console.log("👉 Swiped Right on:", job);
+            console.log("ðŸ‘‰ Swiped Right on:", job);
 
             const staticData = {
                 firstName: "Krish",

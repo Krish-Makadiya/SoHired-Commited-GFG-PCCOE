@@ -1,23 +1,23 @@
-import Navbar from '../components/main/Navbar';
+﻿import Navbar from '../components/main/Navbar';
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles, CheckCircle, Zap, Shield, Hexagon, Twitter, Github, MailIcon, PhoneIcon, MapPinIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { HeroGeometric } from '@/components/ui/shape-landing-hero';
+import { HeroGeometric } from '@/ui/shape-landing-hero';
 import { LogoCloud } from '@/components/logo-cloud-3';
 import { cn } from '@/lib/utils';
 import { HeroSection } from '@/components/hero-section-2';
 import { FeaturesSectionWithHoverEffects } from '@/components/feature-section-with-hover-effects';
-import { StatsCounter } from '@/components/ui/stats-counter';
+import { StatsCounter } from '@/ui/stats-counter';
 import { PricingWithChart } from '@/components/pricing-with-chart';
-import { Footer } from '@/components/ui/footer';
-import { Testimonial } from '@/components/ui/testimonial-card';
-import { CTASection } from '@/components/ui/CTASection';
+import { Footer } from '@/ui/footer';
+import { Testimonial } from '@/ui/testimonial-card';
+import { CTASection } from '@/ui/CTASection';
 import { ContactCard } from '@/components/contact-card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { Label } from '@/ui/label';
+import { Input } from '@/ui/input';
+import { Textarea } from '@/ui/textarea';
+import { Button } from '@/ui/button';
 
 const Landing = () => {
     const logos = [
@@ -225,7 +225,7 @@ const Landing = () => {
                     { href: "/terms", label: "Terms" },
                 ]}
                 copyright={{
-                    text: "© 2026 SoHired",
+                    text: "Â© 2026 SoHired",
                     license: "All rights reserved",
                 }}
             />

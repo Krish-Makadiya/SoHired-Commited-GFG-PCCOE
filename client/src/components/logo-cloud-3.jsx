@@ -1,4 +1,4 @@
-import { InfiniteSlider } from "@/components/ui/infinite-slider";
+﻿import { InfiniteSlider } from "@/ui/infinite-slider";
 import { cn } from "@/lib/utils";
 
 export function LogoCloud({
@@ -28,3 +28,4 @@ export function LogoCloud({
     </div>
   );
 }
+

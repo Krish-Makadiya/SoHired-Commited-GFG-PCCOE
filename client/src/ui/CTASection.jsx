@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import { NeatGradient } from "@firecms/neat";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 import { ArrowRight } from "lucide-react";
 
 export const CTASection = () => {

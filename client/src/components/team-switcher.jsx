@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 
@@ -8,7 +8,7 @@ import {
     SidebarMenuItem,
     SidebarTrigger,
     useSidebar,
-} from "@/components/ui/sidebar"
+} from "@/ui/sidebar"
 import { useTheme } from "@/context/ThemeProvider"
 
 export function TeamSwitcher({
@@ -50,3 +50,4 @@ export function TeamSwitcher({
         </SidebarMenu>
     );
 }
+

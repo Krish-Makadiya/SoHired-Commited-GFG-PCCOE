@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 import * as React from "react"
 import { Star } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 
 const Testimonial = React.forwardRef(
   ({ name, role, company, testimonial, rating = 5, image, className, ...props }, ref) => {

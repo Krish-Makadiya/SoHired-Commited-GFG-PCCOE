@@ -178,3 +178,102 @@ export const batchJobActions = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const postJobController = async (req, res) => {
+    try {
+        const jobData = req.body;
+        const { recruiterId, title, description, status } = jobData;
+
+        if (!recruiterId || !title || !description) {
+            return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        // Add server-side timestamp just in case
+        const dataToSave = {
+            ...jobData,
+            postedAt: jobData.postedAt || new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            status: status || "Active", // Default to Active if not provided
+            applicantCount: 0,
+            applicants: [],
+        };
+
+        const docRef = await db.collection("jobs").add(dataToSave);
+
+        res.status(201).json({
+            message: "Job posted successfully",
+            jobId: docRef.id,
+        });
+    } catch (error) {
+        console.error("Error posting job:", error);
+        res.status(500).json({
+            message: "Failed to post job",
+            error: error.message,
+        });
+    }
+};
+
+export const getRecruiterJobs = async (req, res) => {
+    try {
+        const { recruiterId } = req.params;
+        console.log(recruiterId);
+        if (!recruiterId) {
+            return res
+                .status(400)
+                .json({ message: "Recruiter ID is required" });
+        }
+
+        const snapshot = await db
+            .collection("jobs")
+            .where("recruiterId", "==", recruiterId)
+            // .orderBy("createdAt", "desc") // Requires index, doing in-memory sort for now
+            .get();
+
+        const jobs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        // In-memory sort
+        jobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.status(200).json(jobs);
+    } catch (error) {
+        console.error("Error fetching recruiter jobs:", error);
+        res.status(500).json({
+            message: "Failed to fetch jobs",
+            error: error.message,
+        });
+    }
+};
+
+export const updateJobController = async (req, res) => {
+    try {
+        const { jobId, ...jobData } = req.body;
+
+        if (!jobId) {
+            return res
+                .status(400)
+                .json({ message: "Job ID is required for update" });
+        }
+
+        // Add server-side timestamp for update
+        const dataToUpdate = {
+            ...jobData,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await db.collection("jobs").doc(jobId).update(dataToUpdate);
+
+        res.status(200).json({
+            message: "Job updated successfully",
+            jobId: jobId,
+        });
+    } catch (error) {
+        console.error("Error updating job:", error);
+        res.status(500).json({
+            message: "Failed to update job",
+            error: error.message,
+        });
+    }
+};

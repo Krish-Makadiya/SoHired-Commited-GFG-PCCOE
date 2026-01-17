@@ -1,8 +1,8 @@
-import React from 'react'
+﻿import React from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, Menu, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { AnimatedGroup } from '@/components/ui/animated-group'
+import { Button } from '@/ui/button'
+import { AnimatedGroup } from '@/ui/animated-group'
 import { cn } from '@/lib/utils'
 import { useScroll } from 'framer-motion'
 

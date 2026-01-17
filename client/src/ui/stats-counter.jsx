@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { useInView, useMotionValue, useSpring } from "framer-motion";
-import { cn } from "@/lib/utils";
+
 
 const Counter = ({ value, suffix = "", className }) => {
     const ref = useRef(null);

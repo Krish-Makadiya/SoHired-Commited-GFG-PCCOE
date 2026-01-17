@@ -1,18 +1,12 @@
-"use client"
+﻿"use client"
 
 import {
-    BookOpen,
-    Bot,
-    FileText,
-    Frame,
+    Briefcase,
     GalleryVerticalEnd,
-    GraduationCap,
-    History,
-    Map,
-    PieChart,
     Settings2,
-    SquareTerminal
+    Users
 } from "lucide-react"
+import { useUser } from "@clerk/clerk-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -23,73 +17,32 @@ import {
     SidebarFooter,
     SidebarHeader,
     SidebarRail,
-} from "@/components/ui/sidebar"
+} from "@/ui/sidebar"
 
 // This is sample data.
 const data = {
     user: {
-        name: "Krish Makadiya",
-        email: "krishmakadiya2005@gmail.com",
-        avatar: "/avatars/krishmakadiya2005.jpg",
+        name: "User",
+        email: "user@example.com",
+        avatar: "",
     },
-    teams: [
-        {
-            name: "SoHired",
-            logo: GalleryVerticalEnd,
-            plan: "Enterprise",
-        }
-    ],
     navMain: [
         {
-            title: "Career",
+            title: "Work",
             url: "#",
-            icon: GraduationCap,
+            icon: Briefcase,
             items: [
                 {
-                    title: "Course Suggestions",
-                    url: "/dashboard/course-suggestions",
+                    title: "Find Projects",
+                    url: "/dashboard",
                 },
                 {
-                    title: "Roadmaps",
-                    url: "/dashboard/roadmaps",
-                },
-            ],
-        },
-        {
-            title: "Resume AI",
-            url: "#",
-            icon: FileText,
-            items: [
-                {
-                    title: "ATS Scanner",
-                    url: "/dashboard/ats-scanner",
+                    title: "My Proposals",
+                    url: "/dashboard/my-proposals",
                 },
                 {
-                    title: "Resume Builder",
-                    url: "/dashboard/resume-builder",
-                },
-                {
-                    title: "Cover Letter Gen",
-                    url: "/dashboard/cover-letters",
-                },
-                {
-                    title: "Version History",
-                    url: "/dashboard/resume-versions",
-                }
-            ],
-        },
-        {
-            title: "History",
-            url: "#",
-            icon: History,
-            items: [
-                {
-                    title: "Accepted Jobs",
-                    url: "/dashboard/accepted-jobs",
-                },
-                {
-                    title: "Rejected Jobs",
-                    url: "/dashboard/rejected-jobs",
+                    title: "Active Projects",
+                    url: "/dashboard/active-projects",
                 },
             ],
         },
@@ -107,46 +60,107 @@ const data = {
                     url: "/dashboard/my-profile",
                 },
                 {
-                    title: "Job Preferences",
+                    title: "Preferences",
                     url: "/dashboard/job-preferences",
                 },
             ],
         },
     ],
-    projects: [
-        {
-            name: "Design Engineering",
-            url: "#",
-            icon: Frame,
-        },
-        {
-            name: "Sales & Marketing",
-            url: "#",
-            icon: PieChart,
-        },
-        {
-            name: "Travel",
-            url: "#",
-            icon: Map,
-        },
-    ],
 }
 
-export function AppSidebar({
-    ...props
-}) {
+export function AppSidebar({ ...props }) {
+    const { user } = useUser();
+    const userRole = user?.unsafeMetadata?.role || "candidate";
+    const companyName = user?.unsafeMetadata?.companyName || "My Organization";
+
+    const recruiterNavMain = [
+        {
+            title: "Recruitment",
+            url: "#",
+            icon: Briefcase,
+            items: [
+                {
+                    title: "Dashboard",
+                    url: "/dashboard",
+                },
+                {
+                    title: "Post a Job",
+                    url: "/dashboard/recruiter/post-job",
+                },
+                {
+                    title: "Manage Jobs",
+                    url: "/dashboard/recruiter/manage-jobs",
+                },
+            ],
+        },
+        {
+            title: "Candidates",
+            url: "#",
+            icon: Users,
+            items: [
+                {
+                    title: "Proposals",
+                    url: "/dashboard/recruiter/applications",
+                },
+                {
+                    title: "Interviews",
+                    url: "/dashboard/recruiter/interviews",
+                },
+            ],
+        },
+        {
+            title: "Settings",
+            url: "#",
+            icon: Settings2,
+            items: [
+                {
+                    title: "Company Profile",
+                    url: "/dashboard/recruiter/profile",
+                },
+                {
+                    title: "Account",
+                    url: "/dashboard/my-account",
+                },
+            ],
+        },
+    ];
+
+    const currentNavMain = userRole === 'Recruiter' ? recruiterNavMain : data.navMain;
+
+    const userData = {
+        name: user?.fullName || data.user.name,
+        email: user?.primaryEmailAddress?.emailAddress || data.user.email,
+        avatar: user?.imageUrl || data.user.avatar,
+    };
+
+    // Dynamic Team/Organization Display
+    const currentTeams = userRole === 'recruiter' ? [
+        {
+            name: companyName,
+            logo: Briefcase,
+            plan: "Recruiter Workspace",
+        }
+    ] : [
+        {
+            name: "SoHired",
+            logo: GalleryVerticalEnd,
+            plan: "Job Seeker",
+        }
+    ];
+
     return (
         <Sidebar collapsible="icon" {...props}>
             <SidebarHeader>
-                <TeamSwitcher teams={data.teams} />
+                <TeamSwitcher teams={currentTeams} />
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={data.navMain} />
+                <NavMain items={currentNavMain} />
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={data.user} />
+                <NavUser user={userData} />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>
     );
 }
+

@@ -1,4 +1,4 @@
-import { AppSidebar } from "@/components/app-sidebar"
+﻿import { AppSidebar } from "@/components/app-sidebar"
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -6,13 +6,13 @@ import {
     BreadcrumbList,
     BreadcrumbPage,
     BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
+} from "@/ui/breadcrumb"
+import { Separator } from "@/ui/separator"
 import {
     SidebarInset,
     SidebarProvider,
     SidebarTrigger,
-} from "@/components/ui/sidebar"
+} from "@/ui/sidebar"
 import { Outlet, useLocation } from "react-router-dom"
 
 const DashboardLayout = () => {
@@ -58,3 +58,4 @@ const DashboardLayout = () => {
 }
 
 export default DashboardLayout
+

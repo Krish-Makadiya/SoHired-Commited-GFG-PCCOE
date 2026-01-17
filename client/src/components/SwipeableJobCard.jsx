@@ -1,6 +1,6 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+﻿import { Badge } from "@/ui/badge";
+import { Button } from "@/ui/button";
+import { Card, CardContent, CardHeader } from "@/ui/card";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Building2, Calendar, CircleCheckBig, CircleX, ExternalLink, Globe, MapPin } from "lucide-react";
 
@@ -109,7 +109,7 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
 
                             <Button size="lg" className="w-full gap-2 text-base font-bold h-14 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all rounded-xl" asChild>
                                 <a href={job.link} target="_blank" rel="noopener noreferrer">
-                                    Apply Now
+                                    Submit Proposal
                                     <ExternalLink className="w-5 h-5" />
                                 </a>
                             </Button>
@@ -130,23 +130,25 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                                 <div className="p-6 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border-none">
                                     <h4 className="font-bold mb-3 flex items-center gap-2 text-lg">
                                         <Globe className="w-5 h-5 text-indigo-500" />
-                                        Company Culture
+                                        Tech Stack & Requirements
                                     </h4>
                                     <p className="text-muted-foreground">
-                                        Join a team that values innovation, collaboration, and personal growth.
-                                        We offer a dynamic work environment with opportunities to make a real impact.
+                                        {job.skills ? job.skills.join(", ") : "React, Node.js, Figma, TailwindCSS (Sample Stack)"}
+                                    </p>
+                                    <p className="text-muted-foreground mt-2">
+                                        Deliverables: {job.deliverables || "Source Code, Design Prototype"}
                                     </p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border-none">
                                     <h4 className="font-bold mb-3 flex items-center gap-2 text-lg">
                                         <Building2 className="w-5 h-5 text-emerald-500" />
-                                        Benefits & Perks
+                                        Project Compensation
                                     </h4>
                                     <ul className="text-muted-foreground list-disc list-inside space-y-2">
-                                        <li>Competitive salary and equity</li>
-                                        <li>Comprehensive health coverage</li>
-                                        <li>Flexible working hours</li>
-                                        <li>Remote-first culture</li>
+                                        <li>Budget: {job.salary || "Negotiable"}</li>
+                                        <li>Participation Compensation: {job.participationFee || "Available for non-selected"}</li>
+                                        <li>Secure Payment via Escrow</li>
+                                        <li>Transparent Shortlisting</li>
                                     </ul>
                                 </div>
                             </div>
@@ -157,3 +159,4 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
         </motion.div>
     );
 }
+

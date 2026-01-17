@@ -1,6 +1,6 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+﻿import { Badge } from "@/ui/badge";
+import { Button } from "@/ui/button";
+import { Card, CardContent, CardHeader } from "@/ui/card";
 import { Building2, Calendar, ExternalLink, Globe, MapPin, Share2 } from "lucide-react";
 
 export function JobDetail({ job }) {
@@ -109,3 +109,4 @@ export function JobDetail({ job }) {
         </Card>
     );
 }
+
