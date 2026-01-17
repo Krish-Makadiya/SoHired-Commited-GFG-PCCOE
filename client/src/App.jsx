@@ -21,101 +21,105 @@ import ManageJobs from "./pages/Recruiter/ManageJobs";
 import Applications from "./pages/Recruiter/Applications";
 import Interviews from "./pages/Recruiter/Interviews";
 import CompanyProfile from "./pages/Recruiter/CompanyProfile";
+import { Toaster } from "sonner";
 
 const App = () => {
     return (
-        <Routes>
-            <Route path="/" element={<Landing />} />
+        <>
+            <Routes>
+                <Route path="/" element={<Landing />} />
 
-            <Route path="/onboarding" element={
-                <ProtectedRoute>
-                    <Onboarding />
-                </ProtectedRoute>
-            } />
-
-            <Route path="/dashboard" element={<DashboardLayout />}>
-                {/* 
-                    Index -> Main Dashboard 
-                    Inside Dashboard.jsx, it checks role -> renders RecruiterDashboard or Candidate Swipe deck
-                */}
-                <Route index element={
+                <Route path="/onboarding" element={
                     <ProtectedRoute>
-                        <Dashboard />
+                        <Onboarding />
                     </ProtectedRoute>
                 } />
 
-                {/* Common Protected Routes */}
-                <Route path="my-profile" element={
-                    <ProtectedRoute>
-                        <MyProfile />
-                    </ProtectedRoute>
-                } />
-                <Route path="my-account" element={
-                    <ProtectedRoute>
-                        <MyAccount />
-                    </ProtectedRoute>
-                } />
-                <Route path="job-preferences" element={
-                    <ProtectedRoute>
-                        <JobPreferences />
-                    </ProtectedRoute>
-                } />
+                <Route path="/dashboard" element={<DashboardLayout />}>
+                    {/* 
+                        Index -> Main Dashboard 
+                        Inside Dashboard.jsx, it checks role -> renders RecruiterDashboard or Candidate Swipe deck
+                    */}
+                    <Route index element={
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    } />
 
-                {/* 
-                  ------------------------------------------
-                  CANDIDATE ROUTES (Project Based)
-                  ------------------------------------------
-                */}
-                <Route path="my-proposals" element={
-                    <RoleProtected allowedRole="Candidate">
-                        <MyProposals />
-                    </RoleProtected>
-                } />
-                <Route path="active-projects" element={
-                    <RoleProtected allowedRole="Candidate">
-                        <ActiveProjects />
-                    </RoleProtected>
-                } />
-                <Route path="submit-work/:projectId" element={
-                    <RoleProtected allowedRole="Candidate">
-                        <SubmitWork />
-                    </RoleProtected>
-                } />
+                    {/* Common Protected Routes */}
+                    <Route path="my-profile" element={
+                        <ProtectedRoute>
+                            <MyProfile />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="my-account" element={
+                        <ProtectedRoute>
+                            <MyAccount />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="job-preferences" element={
+                        <ProtectedRoute>
+                            <JobPreferences />
+                        </ProtectedRoute>
+                    } />
+
+                    {/* 
+                      ------------------------------------------
+                      CANDIDATE ROUTES (Project Based)
+                      ------------------------------------------
+                    */}
+                    <Route path="my-proposals" element={
+                        <RoleProtected allowedRole="Candidate">
+                            <MyProposals />
+                        </RoleProtected>
+                    } />
+                    <Route path="active-projects" element={
+                        <RoleProtected allowedRole="Candidate">
+                            <ActiveProjects />
+                        </RoleProtected>
+                    } />
+                    <Route path="submit-work/:projectId" element={
+                        <RoleProtected allowedRole="Candidate">
+                            <SubmitWork />
+                        </RoleProtected>
+                    } />
 
 
-                {/* 
-                  ------------------------------------------
-                  RECRUITER ROUTES 
-                  ------------------------------------------
-                */}
-                <Route path="recruiter/post-job" element={
-                    <RoleProtected allowedRole="Recruiter">
-                        <PostJob />
-                    </RoleProtected>
-                } />
-                <Route path="recruiter/manage-jobs" element={
-                    <RoleProtected allowedRole="Recruiter">
-                        <ManageJobs />
-                    </RoleProtected>
-                } />
-                <Route path="recruiter/applications" element={
-                    <RoleProtected allowedRole="Recruiter">
-                        <Applications />
-                    </RoleProtected>
-                } />
-                <Route path="recruiter/interviews" element={
-                    <RoleProtected allowedRole="Recruiter">
-                        <Interviews />
-                    </RoleProtected>
-                } />
-                <Route path="recruiter/profile" element={
-                    <RoleProtected allowedRole="Recruiter">
-                        <CompanyProfile />
-                    </RoleProtected>
-                } />
+                    {/* 
+                      ------------------------------------------
+                      RECRUITER ROUTES 
+                      ------------------------------------------
+                    */}
+                    <Route path="recruiter/post-job" element={
+                        <RoleProtected allowedRole="Recruiter">
+                            <PostJob />
+                        </RoleProtected>
+                    } />
+                    <Route path="recruiter/manage-jobs" element={
+                        <RoleProtected allowedRole="Recruiter">
+                            <ManageJobs />
+                        </RoleProtected>
+                    } />
+                    <Route path="recruiter/applications" element={
+                        <RoleProtected allowedRole="Recruiter">
+                            <Applications />
+                        </RoleProtected>
+                    } />
+                    <Route path="recruiter/interviews" element={
+                        <RoleProtected allowedRole="Recruiter">
+                            <Interviews />
+                        </RoleProtected>
+                    } />
+                    <Route path="recruiter/profile" element={
+                        <RoleProtected allowedRole="Recruiter">
+                            <CompanyProfile />
+                        </RoleProtected>
+                    } />
 
-            </Route>
-        </Routes>
+                </Route>
+            </Routes>
+            <Toaster />
+        </>
     );
 };
 

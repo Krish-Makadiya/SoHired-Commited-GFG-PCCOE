@@ -277,3 +277,327 @@ export const updateJobController = async (req, res) => {
         });
     }
 };
+
+export const getAllAvailableJobs = async (req, res) => {
+    try {
+        const { clerkId } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+
+        // Fetch "Active" jobs from the global 'jobs' collection
+        // Not filtering by clerkId strictly, but ideally we exclude the user's previously interacted jobs
+        // For now, simpler implementation: Fetch all active jobs
+        const snapshot = await db
+            .collection("jobs")
+            .where("status", "==", "Active")
+            // .orderBy("createdAt", "desc") // May require index
+            .limit(limit)
+            .get();
+
+        let jobs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        // Fetch company/recruiter details for each job
+        const recruiterIds = [
+            ...new Set(jobs.map((job) => job.recruiterId).filter(Boolean)),
+        ];
+
+        if (recruiterIds.length > 0) {
+            const recruiterDocsPromise = recruiterIds.map((id) =>
+                db.collection("users").doc(id).get(),
+            );
+            const recruiterDocs = await Promise.all(recruiterDocsPromise);
+
+            const recruitersMap = {};
+            recruiterDocs.forEach((doc) => {
+                if (doc.exists) {
+                    recruitersMap[doc.id] = doc.data();
+                }
+            });
+
+            // Merge recruiter data into jobs
+            jobs = jobs.map((job) => {
+                const recruiter = recruitersMap[job.recruiterId];
+                if (recruiter) {
+                    return {
+                        ...job,
+                        companyName:
+                            recruiter.companyName ||
+                            `${recruiter.firstName || ""} ${recruiter.lastName || ""}`.trim() ||
+                            job.companyName ||
+                            "Confidential",
+                        companyLogo:
+                            recruiter.companyLogo ||
+                            recruiter.imageUrl ||
+                            job.companyLogo ||
+                            "",
+                        recruiterLocation: recruiter.location || "",
+                        location:
+                            job.location || recruiter.location || "Remote",
+                        companyDetails: recruiter,
+                    };
+                }
+                return job;
+            });
+        }
+
+        // In-memory sort if needed, or rely on future index
+        jobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.status(200).json({ jobs });
+    } catch (error) {
+        console.error("Error fetching available jobs:", error);
+        res.status(500).json({
+            message: "Failed to fetch jobs",
+            error: error.message,
+        });
+    }
+};
+
+export const applyJobController = async (req, res) => {
+    try {
+        const { jobId, userId } = req.body;
+
+        if (!jobId || !userId) {
+            return res
+                .status(400)
+                .json({ message: "Job ID and User ID are required" });
+        }
+
+        // 1. Fetch Candidate Profile (ensure latest data)
+        const userDoc = await db.collection("users").doc(userId).get();
+        if (!userDoc.exists) {
+            return res.status(404).json({ message: "User profile not found" });
+        }
+        const userData = userDoc.data();
+
+        // 2. Add to Job's Applicants Subcollection
+        const applicantRef = db
+            .collection("jobs")
+            .doc(jobId)
+            .collection("applicants")
+            .doc(userId);
+
+        const applicationData = {
+            candidateId: userId,
+            appliedAt: new Date().toISOString(),
+            status: "Applied", // Initial status
+            // Snapshot of profile at time of application
+            firstName: userData.firstName || "",
+            lastName: userData.lastName || "",
+            email: userData.email || "",
+            imageUrl: userData.imageUrl || "",
+            skills: userData.skills || [],
+            experienceLevel: userData.experienceLevel || "",
+            resumeUrl: userData.resume || "", // Assuming resume field
+            ...userData, // include other fields if necessary
+        };
+
+        await applicantRef.set(applicationData, { merge: true });
+
+        // 3. Record Application in User's Document (For MyProposals)
+        await db
+            .collection("users")
+            .doc(userId)
+            .collection("applied_jobs")
+            .doc(jobId)
+            .set(
+                {
+                    jobId,
+                    appliedAt: new Date().toISOString(),
+                },
+                { merge: true },
+            );
+
+        // 4. Increment Applicant Count on Job Document
+        const jobRef = db.collection("jobs").doc(jobId);
+        const jobDoc = await jobRef.get();
+        if (jobDoc.exists) {
+            const currentCount = jobDoc.data().applicantCount || 0;
+            await jobRef.update({ applicantCount: currentCount + 1 });
+        }
+
+        res.status(200).json({ message: "Application submitted successfully" });
+    } catch (error) {
+        console.error("Error applying for job:", error);
+        res.status(500).json({
+            message: "Failed to apply for job",
+            error: error.message,
+        });
+    }
+};
+
+export const getJobApplicantsController = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+
+        // Fetch Job Status
+        const jobDoc = await db.collection("jobs").doc(jobId).get();
+        const jobStatus = jobDoc.exists ? jobDoc.data().status : "Active";
+
+        const snapshot = await db
+            .collection("jobs")
+            .doc(jobId)
+            .collection("applicants")
+            .orderBy("appliedAt", "desc") // May require index
+            .get();
+
+        const applicants = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        res.status(200).json({ applicants, jobStatus });
+    } catch (error) {
+        console.error("Error fetching applicants:", error);
+        res.status(500).json({
+            message: "Failed to fetch applicants",
+            error: error.message,
+        });
+    }
+};
+
+export const updateApplicantStatusController = async (req, res) => {
+    try {
+        const { jobId, applicantId } = req.params;
+        const { status } = req.body; // e.g., "Shortlisted", "Rejected", "Round 2"
+
+        if (!status) {
+            return res.status(400).json({ message: "Status is required" });
+        }
+
+        await db
+            .collection("jobs")
+            .doc(jobId)
+            .collection("applicants")
+            .doc(applicantId)
+            .update({
+                status: status,
+                updatedAt: new Date().toISOString(),
+            });
+
+        res.status(200).json({
+            message: `Applicant status updated to ${status}`,
+        });
+    } catch (error) {
+        console.error("Error updating applicant status:", error);
+        res.status(500).json({
+            message: "Failed to update status",
+            error: error.message,
+        });
+    }
+};
+
+export const getCandidateApplicationsController = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // 1. Get List of Applied Job IDs
+        const appliedJobsSnapshot = await db
+            .collection("users")
+            .doc(userId)
+            .collection("applied_jobs")
+            .orderBy("appliedAt", "desc")
+            .get();
+
+        const applications = await Promise.all(
+            appliedJobsSnapshot.docs.map(async (doc) => {
+                const { jobId } = doc.data();
+
+                // 2. Fetch Job Details (Title, Company, etc.)
+                const jobDoc = await db.collection("jobs").doc(jobId).get();
+                let jobData = {};
+                if (jobDoc.exists) {
+                    jobData = jobDoc.data();
+
+                    // Fetch company/recruiter details if needed for company name
+                    if (jobData.recruiterId) {
+                        const recruiterDoc = await db
+                            .collection("users")
+                            .doc(jobData.recruiterId)
+                            .get();
+                        if (recruiterDoc.exists) {
+                            const recruiter = recruiterDoc.data();
+                            jobData.companyName =
+                                recruiter.companyName ||
+                                `${recruiter.firstName || ""} ${recruiter.lastName || ""}`.trim() ||
+                                "Confidential";
+                            jobData.companyLogo =
+                                recruiter.companyLogo ||
+                                recruiter.imageUrl ||
+                                "";
+                        }
+                    }
+                }
+
+                // 3. Fetch Latest Application Status
+                const applicantDoc = await db
+                    .collection("jobs")
+                    .doc(jobId)
+                    .collection("applicants")
+                    .doc(userId)
+                    .get();
+
+                const applicantData = applicantDoc.exists
+                    ? applicantDoc.data()
+                    : {};
+
+                return {
+                    id: jobId,
+                    jobId,
+                    projectTitle: jobData.title || "Unknown Project",
+                    company: jobData.companyName || "Unknown Company",
+                    sentDate: applicantData.appliedAt,
+                    status: applicantData.status || "Applied",
+                    bidAmount: jobData.budget || "N/A", // Showing budget as proxy for bid/project value
+                    duration: jobData.timeline || "N/A",
+                    jobStatus: jobData.status || "Active",
+                    tasks: jobData.tasks || [],
+                    userId: userId,
+                };
+            }),
+        );
+
+        res.status(200).json({ applications });
+    } catch (error) {
+        console.error("Error fetching candidate applications:", error);
+        res.status(500).json({
+            message: "Failed to fetch applications",
+            error: error.message,
+        });
+    }
+};
+
+export const submitWorkController = async (req, res) => {
+    try {
+        const { jobId, userId, submissionLink, description } = req.body;
+
+        if (!jobId || !userId || !submissionLink) {
+            return res.status(400).json({
+                message: "Job ID, User ID, and Submission Link are required",
+            });
+        }
+
+        await db
+            .collection("jobs")
+            .doc(jobId)
+            .collection("applicants")
+            .doc(userId)
+            .update({
+                submissionLink,
+                submissionDescription: description || "",
+                submissionDate: new Date().toISOString(),
+                status: "Work Submitted",
+            });
+
+        res.status(200).json({ message: "Work submitted successfully" });
+    } catch (error) {
+        console.error("Error submitting work:", error);
+        res.status(500).json({
+            message: "Failed to submit work",
+            error: error.message,
+        });
+    }
+};

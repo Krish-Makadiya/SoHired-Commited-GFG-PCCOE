@@ -8,14 +8,28 @@ import {
     postJobController,
     getRecruiterJobs,
     updateJobController,
+    getAllAvailableJobs,
+    applyJobController,
+    getJobApplicantsController,
+    updateApplicantStatusController,
+    getCandidateApplicationsController,
+    submitWorkController,
 } from "../controllers/jobs.controller.js";
 
 const router = Router();
 
 router.post("/post", postJobController);
+router.post("/apply", applyJobController);
+router.post("/submit-work", submitWorkController);
 router.post("/update", updateJobController);
 router.get("/posted/:recruiterId", getRecruiterJobs);
-router.get("/posted/:recruiterId", getRecruiterJobs);
+router.get("/feed/:clerkId", getAllAvailableJobs);
+router.get("/:jobId/applicants", getJobApplicantsController);
+router.patch(
+    "/:jobId/applicants/:applicantId",
+    updateApplicantStatusController,
+);
+router.get("/applications/:userId", getCandidateApplicationsController);
 router.get("/:clerkId", getAllJobs);
 
 router.post("/save-job/:clerkId", saveJobController);

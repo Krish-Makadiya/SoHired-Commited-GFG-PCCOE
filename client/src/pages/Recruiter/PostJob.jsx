@@ -9,7 +9,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar } from "@/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, DollarSign, Clock, Code2, FileText, UploadCloud } from "lucide-react";
+import { CalendarIcon, Loader2, DollarSign, Clock, Code2, FileText, UploadCloud, Trash2, Plus } from "lucide-react";
 import axios from 'axios';
 import { useUser } from '@clerk/clerk-react';
 
@@ -33,6 +33,8 @@ const PostJob = () => {
         deliverables: ""
     });
 
+    const [tasks, setTasks] = useState([{ description: "", payout: "" }]);
+
     useEffect(() => {
         // Check if we are in Edit Mode
         if (location.state && location.state.job) {
@@ -50,6 +52,9 @@ const PostJob = () => {
             });
             if (job.deadline) {
                 setDate(new Date(job.deadline));
+            }
+            if (job.tasks && Array.isArray(job.tasks)) {
+                setTasks(job.tasks);
             }
         }
     }, [location.state]);
@@ -69,6 +74,20 @@ const PostJob = () => {
         }));
     };
 
+    const handleTaskChange = (index, field, value) => {
+        const newTasks = [...tasks];
+        newTasks[index][field] = value;
+        setTasks(newTasks);
+    };
+
+    const addTask = () => {
+        setTasks([...tasks, { description: "", payout: "" }]);
+    };
+
+    const removeTask = (index) => {
+        setTasks(tasks.filter((_, i) => i !== index));
+    };
+
     const handleSubmit = async (status = "Active") => {
         if (!formData.title || !formData.description || !formData.timeline || !formData.techStack) {
             alert("Please fill in all required fields.");
@@ -80,6 +99,7 @@ const PostJob = () => {
             const payload = {
                 recruiterId: user?.id,
                 ...formData,
+                tasks: tasks,
                 deadline: date ? date.toISOString() : null,
                 status: status,
                 // Only update postedAt if it's a new post or if we want to refresh it. 
@@ -257,6 +277,43 @@ const PostJob = () => {
                             </div>
                         </CardContent>
                     </Card>
+
+                    <Card className="border-neutral-200 dark:border-neutral-800 shadow-sm">
+                        <CardHeader>
+                            <CardTitle>Project Tasks & Milestones</CardTitle>
+                            <CardDescription>Break down the project into key tasks and their payout values.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {tasks.map((task, index) => (
+                                <div key={index} className="flex gap-4 items-start">
+                                    <div className="flex-1 space-y-2">
+                                        <Label>Task Description</Label>
+                                        <Input
+                                            placeholder="e.g. Design Home Page"
+                                            value={task.description}
+                                            onChange={(e) => handleTaskChange(index, "description", e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="w-1/3 space-y-2">
+                                        <Label>Payout</Label>
+                                        <Input
+                                            placeholder="$100"
+                                            value={task.payout}
+                                            onChange={(e) => handleTaskChange(index, "payout", e.target.value)}
+                                        />
+                                    </div>
+                                    {tasks.length > 1 && (
+                                        <Button variant="ghost" size="icon" className="mt-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => removeTask(index)}>
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            <Button variant="outline" onClick={addTask} className="mt-2 w-full gap-2 border-dashed">
+                                <Plus className="w-4 h-4" /> Add Another Task
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Right Column: Preview / Actions */}
@@ -302,7 +359,7 @@ const PostJob = () => {
                     </Card>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

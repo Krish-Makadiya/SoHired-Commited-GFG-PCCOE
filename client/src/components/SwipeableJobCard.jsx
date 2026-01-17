@@ -13,9 +13,11 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
     const overlayRightOpacity = useTransform(x, [0, 200], [0, 0.5]);
     const overlayLeftOpacity = useTransform(x, [-200, 0], [0.5, 0]);
 
-    const formatDate = (dateObj) => {
-        if (!dateObj || !dateObj._seconds) return "Recently";
-        return new Date(dateObj._seconds * 1000).toLocaleDateString("en-US", {
+    const formatDate = (dateString) => {
+        if (!dateString) return "Recently";
+        // Handle both ISO strings and Firestore Timestamps if necessary, but backend sends ISO.
+        const date = new Date(dateString);
+        return date.toLocaleDateString("en-US", {
             month: "long",
             day: "numeric",
             year: "numeric"
@@ -23,7 +25,7 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
     };
 
     const handleDragEnd = (event, info) => {
-        console.log(event);
+        // ... previous logic
         const threshold = 150;
         if (info.offset.x > threshold) {
             onSwipe("right");
@@ -68,20 +70,18 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                         <Badge variant="secondary" className="rounded-full px-4 py-1.5 font-medium">
-                                            Full Time
+                                            {job.type || "Project"}
                                         </Badge>
-                                        {job.language && (
-                                            <Badge variant="outline" className="rounded-full px-4 py-1.5 capitalize border-primary/20 text-primary bg-primary/5">
-                                                {new Intl.DisplayNames(['en'], { type: 'language' }).of(job.language) || job.language}
-                                            </Badge>
-                                        )}
+                                        <Badge variant="outline" className="rounded-full px-4 py-1.5 capitalize border-primary/20 text-primary bg-primary/5">
+                                            {job.status || "Active"}
+                                        </Badge>
                                     </div>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div>
                                         <div className="flex items-center gap-2 text-primary font-bold text-lg mb-1">
-                                            <span className="tracking-tight">{job.companyName}</span>
+                                            <span className="tracking-tight">{job.timeline ? `${job.timeline} Duration` : "No timeline"}</span>
                                         </div>
                                         <h1 className="text-3xl md:text-5xl font-black tracking-tight text-foreground leading-[0.95]">
                                             {job.title}
@@ -91,27 +91,27 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                                     <div className="flex flex-col gap-3 text-muted-foreground text-base">
                                         <div className="flex items-center gap-2.5">
                                             <MapPin className="w-5 h-5 shrink-0 text-neutral-500" />
-                                            <span className="font-medium">{job.location}</span>
+                                            <span className="font-medium">{job.location || "Remote"}</span>
                                         </div>
                                         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="w-4 h-4 shrink-0" />
                                                 <span>Posted {formatDate(job.createdAt)}</span>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-                                                <span>Updated {formatDate(job.updatedAt)}</span>
-                                            </div>
+                                            {job.deadline && (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                                                    <span>Deadline {formatDate(job.deadline)}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <Button size="lg" className="w-full gap-2 text-base font-bold h-14 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all rounded-xl" asChild>
-                                <a href={job.link} target="_blank" rel="noopener noreferrer">
-                                    Submit Proposal
-                                    <ExternalLink className="w-5 h-5" />
-                                </a>
+                            <Button size="lg" className="w-full gap-2 text-base font-bold h-14 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all rounded-xl" onClick={() => onSwipe("right")}>
+                                Apply for Project
+                                <ExternalLink className="w-5 h-5" />
                             </Button>
                         </div>
                     </CardHeader>
@@ -121,6 +121,7 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                         onPointerDown={(e) => e.stopPropagation()}
                     >
                         <div className="prose dark:prose-invert max-w-none">
+                            <h3 className="text-lg font-bold mb-2 mt-0">Description</h3>
                             <div
                                 className="text-muted-foreground leading-relaxed text-lg [&>h3]:text-foreground [&>h3]:font-bold [&>h3]:mt-6 [&>h3]:mb-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1 [&>p]:mb-4"
                                 dangerouslySetInnerHTML={{ __html: job.description || "<p>No description provided.</p>" }}
@@ -133,10 +134,11 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                                         Tech Stack & Requirements
                                     </h4>
                                     <p className="text-muted-foreground">
-                                        {job.skills ? job.skills.join(", ") : "React, Node.js, Figma, TailwindCSS (Sample Stack)"}
+                                        {job.techStack || "Not specified"}
                                     </p>
-                                    <p className="text-muted-foreground mt-2">
-                                        Deliverables: {job.deliverables || "Source Code, Design Prototype"}
+                                    <h4 className="font-bold mt-4 mb-2 text-sm uppercase text-neutral-500">Deliverables</h4>
+                                    <p className="text-muted-foreground">
+                                        {job.deliverables || "Not specified"}
                                     </p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border-none">
@@ -145,8 +147,8 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                                         Project Compensation
                                     </h4>
                                     <ul className="text-muted-foreground list-disc list-inside space-y-2">
-                                        <li>Budget: {job.salary || "Negotiable"}</li>
-                                        <li>Participation Compensation: {job.participationFee || "Available for non-selected"}</li>
+                                        <li>Budget: {job.budget || "Negotiable"}</li>
+                                        <li>Participation Compensation: Available for non-selected</li>
                                         <li>Secure Payment via Escrow</li>
                                         <li>Transparent Shortlisting</li>
                                     </ul>

@@ -50,7 +50,8 @@ const Dashboard = () => {
         if (!user) return;
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/jobs/${user.id}`, {
+            // Updated to fetch from the new feed endpoint
+            const response = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/jobs/feed/${user.id}`, {
                 params: { page, limit: 5 }
             });
             console.log(response);
@@ -78,63 +79,15 @@ const Dashboard = () => {
 
     const handleSwipe = async (direction, job) => {
         if (direction === "right") {
-            console.log("ðŸ‘‰ Swiped Right on:", job);
-
-            const staticData = {
-                firstName: "Krish",
-                lastName: "Makadiya",
-                email: "krishmakadiya2005@gmail.com",
-                phone: "9876543210",
-                location: "Kolhapur, Maharashtra, India", // Matches Greenhouse location search
-
-                // Custom Fields identified
-                linkedin: "https://www.linkedin.com/in/krish-makadiya/",
-                website: "https://krish-makadiya.vercel.app/",
-
-                // Demographics & Custom Questions
-                // Note: These need to match the specific dropdown text exactly
-                sponsorship: "No", // "Will you now or in the future require sponsorship..."
-                howDidYouHear: "Other",
-                gender: "Male", // "Gender Identity"
-
-                // Checkbox boolean
-                consent: true // "Demographic Data Consent"
-            };
-
-            if (window.chrome && chrome.runtime) {
-                // 3. Send the message
-                chrome.runtime.sendMessage("iobcmkfkokblfjghlmlemaoabgloijlk", {
-                    action: "TRIGGER_AUTOFILL",
-                    url: job.link,
-                    payload: staticData
-                }, (response) => {
-                    console.log("Extension responded:", response);
-                });
-            } else {
-                alert("Extension not installed!");
-            }
-
-
-
-            // 4. Save job immediately (Right Swipe)
             try {
-                await axios.post(`${import.meta.env.VITE_SERVER_API}/api/jobs/save-job/${user.id}`, job);
-                console.log("Job saved successfully");
-            } catch (error) {
-                console.error("Error saving job:", error);
-            }
-
-            try {
-                const payload = {
-                    jobDescription: job.description,
+                console.log("👉 Applying to job:", job.title);
+                await axios.post(`${import.meta.env.VITE_SERVER_API}/api/jobs/apply`, {
                     jobId: job.id,
-                    userId: user.id,
-                    skills: ["JavaScript", "React", "Node.js", "MongoDB", "Express"] // Static skills for testing
-                };
-                const res = await axios.post('http://localhost:5678/webhook/2777d0a3-1580-45a4-bf2c-d9bcf07f6afb', payload);
-                console.log("AI Recommendations:", res.data);
+                    userId: user.id
+                });
+                console.log("Application Sent Successfully");
             } catch (error) {
-                console.error("Error fetching AI recommendations:", error);
+                console.error("Error applying to job:", error);
             }
         } else {
             console.log("Swiped Left (Passed):", job.title);
