@@ -119,6 +119,14 @@ const Applications = () => {
         }
         return c.status === statusFilter;
     });
+    
+    // --- SMART RANKING LOGIC ---
+    // Simulate AI score if not present
+    const rankedCandidates = filteredCandidates.map(c => ({
+        ...c,
+        matchScore: c.matchScore || Math.floor(Math.random() * (98 - 70) + 70), // Mock score between 70-98
+        hasVideo: Math.random() > 0.5 // Mock video availability
+    })).sort((a, b) => b.matchScore - a.matchScore); // Sort by highest score
 
     if (isLoading) {
         return (
@@ -312,6 +320,21 @@ const Applications = () => {
                                                         </Button>
                                                     )}
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {/* VIDEO INTRO UI */}
+                                        {candidate.hasVideo && (
+                                            <div className="mt-2">
+                                                <Button variant="ghost" size="sm" className="gap-2 text-pink-600 hover:text-pink-700 hover:bg-pink-50" onClick={() => {
+                                                    // DEMO MODE: Always play the latest uploaded video
+                                                    const videoUrl = `${import.meta.env.VITE_SERVER_API}/uploads/video-demo.webm`; 
+                                                    // Check if it exists or just play it (browser handles 404)
+                                                    window.open(videoUrl, '_blank');
+                                                    toast.info(`Playing ${candidate.firstName}'s video pitch...`);
+                                                }}>
+                                                    <PlayCircle className="w-4 h-4" /> Watch Video Pitch
+                                                </Button>
                                             </div>
                                         )}
                                     </div>
