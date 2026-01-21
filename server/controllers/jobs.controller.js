@@ -374,7 +374,58 @@ export const applyJobController = async (req, res) => {
         }
         const userData = userDoc.data();
 
-        // 2. Add to Job's Applicants Subcollection
+        // 2. Fetch Job Details for AI Analysis
+        const jobRef = db.collection("jobs").doc(jobId);
+        const jobDoc = await jobRef.get();
+        if (!jobDoc.exists) {
+            return res.status(404).json({ message: "Job not found" });
+        }
+        const jobData = jobDoc.data();
+
+        // 3. AI Suitability Analysis
+        let suitabilityScore = 0;
+        let suitabilityAnalysis = "";
+
+        try {
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({
+                model: "gemini-2.5-flash-preview-09-2025",
+                generationConfig: { responseMimeType: "application/json" },
+            });
+
+            const prompt = `
+            You are an expert HR AI. Calculate a suitability score (0-100) for a candidate applying to a job.
+            
+            Job Details:
+            Title: ${jobData.title}
+            Description: ${jobData.description}
+            Required Skills: ${jobData.techStack || jobData.skills || "General tech skills"}
+            
+            Candidate Profile:
+            Skills: ${userData.skills ? userData.skills.join(", ") : "None listed"}
+            Experience Level: ${userData.experienceLevel || "Not specified"}
+            Work Experience: ${JSON.stringify(userData.workExperience || [])}
+            Education: ${JSON.stringify(userData.education || [])}
+            Summary: ${userData.summary || ""}
+
+            Analyze the alignment between the candidate's skills/experience and the job requirements.
+            Return a JSON object with:
+            - score: Integer (0-100)
+            - analysis: A brief 2-sentence explanation of why this score was given.
+            `;
+
+            const result = await model.generateContent(prompt);
+            console.log("WORKING");
+            const responseText = result.response.text();
+            const aiResult = JSON.parse(responseText);
+            suitabilityScore = aiResult.score;
+            suitabilityAnalysis = aiResult.analysis;
+        } catch (aiError) {
+            console.error("AI Scoring Failed:", aiError);
+            // Fallback or silently fail the AI part without blocking application
+        }
+
+        // 4. Add to Job's Applicants Subcollection
         const applicantRef = db
             .collection("jobs")
             .doc(jobId)
@@ -384,21 +435,30 @@ export const applyJobController = async (req, res) => {
         const applicationData = {
             candidateId: userId,
             appliedAt: new Date().toISOString(),
-            status: "Applied", // Initial status
-            // Snapshot of profile at time of application
+            status: "Applied",
+
+            // Profile Snapshot
             firstName: userData.firstName || "",
             lastName: userData.lastName || "",
             email: userData.email || "",
             imageUrl: userData.imageUrl || "",
             skills: userData.skills || [],
             experienceLevel: userData.experienceLevel || "",
-            resumeUrl: userData.resume || "", // Assuming resume field
-            ...userData, // include other fields if necessary
+            resumeUrl: userData.resume || "",
+            summary: userData.summary || "",
+            workExperience: userData.workExperience || [],
+            education: userData.education || {},
+
+            // AI Score
+            suitabilityScore,
+            suitabilityAnalysis,
+
+            ...userData,
         };
 
         await applicantRef.set(applicationData, { merge: true });
 
-        // 3. Record Application in User's Document (For MyProposals)
+        // 5. Record Application in User's Document
         await db
             .collection("users")
             .doc(userId)
@@ -412,15 +472,14 @@ export const applyJobController = async (req, res) => {
                 { merge: true },
             );
 
-        // 4. Increment Applicant Count on Job Document
-        const jobRef = db.collection("jobs").doc(jobId);
-        const jobDoc = await jobRef.get();
-        if (jobDoc.exists) {
-            const currentCount = jobDoc.data().applicantCount || 0;
-            await jobRef.update({ applicantCount: currentCount + 1 });
-        }
+        // 6. Increment Applicant Count
+        const currentCount = jobData.applicantCount || 0;
+        await jobRef.update({ applicantCount: currentCount + 1 });
 
-        res.status(200).json({ message: "Application submitted successfully" });
+        res.status(200).json({
+            message: "Application submitted successfully",
+            score: suitabilityScore,
+        });
     } catch (error) {
         console.error("Error applying for job:", error);
         res.status(500).json({
@@ -551,13 +610,19 @@ export const getCandidateApplicationsController = async (req, res) => {
                     jobId,
                     projectTitle: jobData.title || "Unknown Project",
                     company: jobData.companyName || "Unknown Company",
+                    companyLogo: jobData.companyLogo || "",
                     sentDate: applicantData.appliedAt,
                     status: applicantData.status || "Applied",
-                    bidAmount: jobData.budget || "N/A", // Showing budget as proxy for bid/project value
+                    bidAmount: jobData.budget || "N/A",
                     duration: jobData.timeline || "N/A",
                     jobStatus: jobData.status || "Active",
                     tasks: jobData.tasks || [],
                     userId: userId,
+                    description: jobData.description || "",
+                    location: jobData.location || "Remote",
+                    skills: jobData.skills || jobData.techStack || [],
+                    submissionTask: jobData.submissionTask || "",
+                    taskProgress: applicantData.taskProgress || {},
                 };
             }),
         );
@@ -574,7 +639,14 @@ export const getCandidateApplicationsController = async (req, res) => {
 
 export const submitWorkController = async (req, res) => {
     try {
-        const { jobId, userId, submissionLink, description } = req.body;
+        const {
+            jobId,
+            userId,
+            submissionLink,
+            description,
+            images,
+            additionalNotes,
+        } = req.body;
 
         if (!jobId || !userId || !submissionLink) {
             return res.status(400).json({
@@ -590,6 +662,8 @@ export const submitWorkController = async (req, res) => {
             .update({
                 submissionLink,
                 submissionDescription: description || "",
+                submissionImages: images || [],
+                submissionNotes: additionalNotes || "",
                 submissionDate: new Date().toISOString(),
                 status: "Work Submitted",
             });
@@ -676,6 +750,123 @@ export const analyzeSubmissionController = async (req, res) => {
         console.error("Error analyzing submission:", error);
         res.status(500).json({
             message: "AI Analysis failed",
+            error: error.message,
+        });
+    }
+};
+
+export const updateTaskProgressController = async (req, res) => {
+    try {
+        const { jobId, applicantId } = req.params;
+        const { taskIndex, status, submissionNote } = req.body; // status: 'submitted', 'verified', 'rejected'
+
+        if (taskIndex === undefined || !status) {
+            return res
+                .status(400)
+                .json({ message: "Task Index and Status are required" });
+        }
+
+        const applicantRef = db
+            .collection("jobs")
+            .doc(jobId)
+            .collection("applicants")
+            .doc(applicantId);
+
+        const applicantDoc = await applicantRef.get();
+        if (!applicantDoc.exists) {
+            return res.status(404).json({ message: "Applicant not found" });
+        }
+
+        const applicantData = applicantDoc.data();
+        const currentProgress = applicantData.taskProgress || {};
+
+        // Update specific task status
+        currentProgress[taskIndex] = {
+            status,
+            submissionNote:
+                submissionNote ||
+                currentProgress[taskIndex]?.submissionNote ||
+                "",
+            updatedAt: new Date().toISOString(),
+        };
+
+        await applicantRef.update({
+            taskProgress: currentProgress,
+        });
+
+        res.status(200).json({
+            message: `Task ${taskIndex} status updated to ${status}`,
+            taskProgress: currentProgress,
+        });
+    } catch (error) {
+        console.error("Error updating task progress:", error);
+        res.status(500).json({
+            message: "Failed to update task progress",
+            error: error.message,
+        });
+    }
+};
+
+export const getRecruiterActiveWorkController = async (req, res) => {
+    try {
+        const { recruiterId } = req.params;
+
+        // 1. Fetch all jobs posted by the recruiter
+        const jobsSnapshot = await db
+            .collection("jobs")
+            .where("recruiterId", "==", recruiterId)
+            .get();
+
+        const activeEngagements = [];
+
+        // 2. Iterate through each job to find active applicants
+        await Promise.all(
+            jobsSnapshot.docs.map(async (jobDoc) => {
+                const jobData = jobDoc.data();
+                const jobId = jobDoc.id;
+
+                const applicantsSnapshot = await db
+                    .collection("jobs")
+                    .doc(jobId)
+                    .collection("applicants")
+                    .where("status", "in", [
+                        "Shortlisted",
+                        "Work Submitted",
+                        "Interview",
+                        "Hired",
+                    ])
+                    .get();
+
+                applicantsSnapshot.forEach((appDoc) => {
+                    const appData = appDoc.data();
+                    activeEngagements.push({
+                        id: appDoc.id, // candidateId
+                        jobId,
+                        jobTitle: jobData.title,
+                        company: jobData.companyName,
+                        candidateName: `${appData.firstName} ${appData.lastName}`,
+                        candidateImage: appData.imageUrl,
+                        status: appData.status,
+                        appliedAt: appData.appliedAt,
+                        taskProgress: appData.taskProgress || {},
+                        tasks: jobData.tasks || [],
+                        submissionLink: appData.submissionLink,
+                        submissionDescription: appData.submissionDescription,
+                    });
+                });
+            }),
+        );
+
+        // Sort by most recent activity/application
+        activeEngagements.sort(
+            (a, b) => new Date(b.appliedAt) - new Date(a.appliedAt),
+        );
+
+        res.status(200).json({ activeEngagements });
+    } catch (error) {
+        console.error("Error fetching recruiter active work:", error);
+        res.status(500).json({
+            message: "Failed to fetch active work",
             error: error.message,
         });
     }

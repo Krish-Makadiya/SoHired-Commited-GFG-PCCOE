@@ -98,28 +98,35 @@ const ManageJobs = () => {
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                                        <span className="sr-only">Open menu</span>
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => navigate(`/dashboard/recruiter/applications?job=${job.id}`)}>
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        View Applicants
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => navigate("/dashboard/recruiter/post-job", { state: { job } })}>
-                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                        Edit Job
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600 focus:text-red-600">
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="h-10"
+                                                    onClick={() => navigate(`/dashboard/recruiter/applications?job=${job.id}`)}
+                                                >
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    View Applicants
+                                                </Button>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Open menu</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => navigate("/dashboard/recruiter/post-job", { state: { job } })}>
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            Edit Job
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600">
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

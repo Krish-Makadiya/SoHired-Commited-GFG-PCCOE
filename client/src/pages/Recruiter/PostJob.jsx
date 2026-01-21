@@ -222,18 +222,42 @@ const PostJob = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="budget" className="flex items-center gap-2">
                                         <DollarSign className="w-4 h-4 text-muted-foreground" />
-                                        Budget / Stipend
+                                        Total Budget
                                     </Label>
                                     <Input
                                         id="budget"
-                                        placeholder="e.g. $1000 Fixed or $50/hr"
+                                        placeholder="e.g. 5000"
                                         value={formData.budget}
                                         onChange={handleInputChange}
+                                        type="number"
+                                        min="0"
                                     />
+                                    <p className="text-xs text-muted-foreground">Enter the total project budget.</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="mainBudget" className="text-muted-foreground">Main Budget (90%)</Label>
+                                        <Input
+                                            id="mainBudget"
+                                            value={formData.budget ? `$${((parseFloat(formData.budget) || 0) * 0.90).toFixed(2)}` : ''}
+                                            readOnly
+                                            className="bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="compensationBudget" className="text-muted-foreground">Compensation Budget (10%)</Label>
+                                        <Input
+                                            id="compensationBudget"
+                                            value={formData.budget ? `$${((parseFloat(formData.budget) || 0) * 0.10).toFixed(2)}` : ''}
+                                            readOnly
+                                            className="bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

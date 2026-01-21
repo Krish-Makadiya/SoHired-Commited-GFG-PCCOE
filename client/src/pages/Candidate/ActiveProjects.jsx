@@ -1,12 +1,14 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/ui/dialog";
 import { Input } from "@/ui/input";
+import { Textarea } from "@/ui/textarea";
+import { Label } from "@/ui/label";
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/ui/card";
 import { Button } from "@/ui/button";
 import { Badge } from "@/ui/badge";
 import { Progress } from "@/ui/progress";
 import { Checkbox } from "@/ui/checkbox";
-import { Clock, FileCheck, UploadCloud, Loader2, DollarSign, MessageCircle, Send, FileText, Calendar, Building2, Info } from "lucide-react";
+import { Clock, FileCheck, UploadCloud, Loader2, DollarSign, MessageCircle, Send, FileText, Calendar, Building2, Info, CheckCircle2 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
@@ -22,20 +24,56 @@ const mockTasks = [
 
 const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
     const navigate = useNavigate();
+    const { user } = useUser();
     const tasks = project.tasks && project.tasks.length > 0 ? project.tasks : mockTasks;
 
-    // Initialize task completion state (default to false unless status implies done)
-    const [completedTasks, setCompletedTasks] = useState(
-        new Array(tasks.length).fill(project.status === 'Work Submitted' || project.status === 'Hired')
-    );
+    // Local state for optimistic updates
+    const [taskProgress, setTaskProgress] = useState(project.taskProgress || {});
+    const [loadingTask, setLoadingTask] = useState(null);
 
-    const handleTaskToggle = (index) => {
-        const newCompleted = [...completedTasks];
-        newCompleted[index] = !newCompleted[index];
-        setCompletedTasks(newCompleted);
+    // Submission Modal State
+    const [submitModalOpen, setSubmitModalOpen] = useState(false);
+    const [activeTaskIndex, setActiveTaskIndex] = useState(null);
+    const [submissionNote, setSubmissionNote] = useState("");
+
+    const handleOpenSubmitModal = (index) => {
+        const task = tasks[index];
+        setActiveTaskIndex(index);
+        setSubmissionNote(`I have completed the task: "${task.description}".\n\nUpdates:\n- \n- \n\nPlease review.`);
+        setSubmitModalOpen(true);
     };
 
-    const allTasksCompleted = completedTasks.every(Boolean);
+    const handleConfirmSubmit = async () => {
+        if (activeTaskIndex === null) return;
+
+        setLoadingTask(activeTaskIndex);
+        try {
+            await axios.patch(`${import.meta.env.VITE_SERVER_API}/api/jobs/${project.jobId}/applicants/${project.userId}/tasks`, {
+                taskIndex: activeTaskIndex,
+                status: 'submitted',
+                submissionNote: submissionNote
+            });
+
+            setTaskProgress(prev => ({
+                ...prev,
+                [activeTaskIndex]: {
+                    status: 'submitted',
+                    submissionNote: submissionNote,
+                    updatedAt: new Date().toISOString()
+                }
+            }));
+
+            toast.success("Task submitted with updates!");
+            setSubmitModalOpen(false);
+        } catch (error) {
+            console.error("Error submitting task:", error);
+            toast.error("Failed to submit task");
+        } finally {
+            setLoadingTask(null);
+        }
+    };
+
+    const allTasksVerified = tasks.every((_, i) => taskProgress[i]?.status === 'verified');
 
     return (
         <Card className="overflow-hidden border-l-4 border-l-blue-600 shadow-sm hover:shadow-md transition-all">
@@ -81,50 +119,77 @@ const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
                             <FileCheck className="w-4 h-4" /> Project Tasks & Milestones
                         </h4>
                         <div className="space-y-2 border rounded-lg p-2 bg-white dark:bg-black">
-                            {tasks.map((task, i) => (
-                                <div key={i} className="flex items-start space-x-3 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-md transition-colors">
-                                    <Checkbox
-                                        id={`task-${project.id}-${i}`}
-                                        checked={completedTasks[i]}
-                                        onCheckedChange={() => handleTaskToggle(i)}
-                                    />
-                                    <div className="grid gap-1.5 leading-none flex-1">
-                                        <label
-                                            htmlFor={`task-${project.id}-${i}`}
-                                            className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ${completedTasks[i] ? 'line-through text-muted-foreground' : ''}`}
-                                        >
-                                            {task.description}
-                                        </label>
-                                        <p className="text-xs text-muted-foreground">
-                                            Payout Release: {task.payout}
-                                        </p>
+                            {tasks.map((task, i) => {
+                                const status = taskProgress[i]?.status;
+                                const isVerified = status === 'verified';
+                                const isSubmitted = status === 'submitted';
+
+                                return (
+                                    <div key={i} className={`flex items-center justify-between space-x-3 p-3 rounded-md transition-all duration-200 ${isVerified ? 'bg-green-50/50 dark:bg-green-900/20 border border-green-100 dark:border-green-900' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-transparent'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isVerified ? 'bg-green-500 border-green-500 text-white' : 'border-neutral-300 dark:border-neutral-600'}`}>
+                                                {isVerified && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                            </div>
+
+                                            <div className="grid gap-1 leading-none">
+                                                <span className={`text-sm font-medium leading-none transition-colors ${isVerified ? 'text-green-800 dark:text-green-300 line-through opacity-70' : ''}`}>
+                                                    {task.description}
+                                                </span>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Payout Release: {task.payout}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            {isVerified ? (
+                                                <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50 text-xs gap-1">
+                                                    <CheckCircle2 className="w-3 h-3" /> Verified
+                                                </Badge>
+                                            ) : isSubmitted ? (
+                                                <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
+                                                    <Clock className="w-3 h-3" /> Pending Review
+                                                </Badge>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs"
+                                                    onClick={() => handleOpenSubmitModal(i)}
+                                                    disabled={loadingTask === i}
+                                                >
+                                                    {loadingTask === i ? <Loader2 className="w-3 h-3 animate-spin" /> : "Mark Done"}
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
-                        <div className="flex justify-between text-xs text-muted-foreground px-1">
-                            <span>{completedTasks.filter(Boolean).length} of {tasks.length} tasks completed</span>
-                            <span>{Math.round((completedTasks.filter(Boolean).length / tasks.length) * 100)}% Progress</span>
+
+                        {/* Progress Bar */}
+                        <div className="flex justify-between text-xs text-muted-foreground px-1 pt-2">
+                            <span>{Object.values(taskProgress).filter(t => t.status === 'verified').length} of {tasks.length} tasks verified</span>
                         </div>
-                        <Progress value={(completedTasks.filter(Boolean).length / tasks.length) * 100} className="h-2" />
+                        <Progress value={(Object.values(taskProgress).filter(t => t.status === 'verified').length / tasks.length) * 100} className="h-2" />
                     </div>
                 </div>
 
                 {/* Sidebar Actions */}
                 <div className="bg-neutral-50 dark:bg-neutral-900/40 p-6 flex flex-col gap-3 min-w-[260px] border-t md:border-t-0 md:border-l justify-center">
                     <Button
-                        className={`w-full gap-2 transition-all ${allTasksCompleted ? "animate-pulse" : "opacity-80"}`}
+                        className={`w-full gap-2 transition-all ${allTasksVerified ? "animate-pulse" : "opacity-80"}`}
                         onClick={() => navigate(`/dashboard/submit-work/${project.jobId}`)}
-                        disabled={!allTasksCompleted}
+                        disabled={!allTasksVerified}
                     >
-                        {allTasksCompleted ? <UploadCloud className="w-4 h-4" /> : <Info className="w-4 h-4" />}
-                        {allTasksCompleted ? "Submit Final Work" : "Complete All Tasks"}
+                        {allTasksVerified ? <UploadCloud className="w-4 h-4" /> : <Info className="w-4 h-4" />}
+                        {allTasksVerified ? "Submit Final Work" : "Complete All Tasks"}
                     </Button>
 
                     <p className="text-[10px] text-center text-muted-foreground leading-tight px-2">
-                        {allTasksCompleted
-                            ? "All tasks checked. You can now submit your work for review."
-                            : "Please mark all tasks as completed to unlock submission."}
+                        {allTasksVerified
+                            ? "All tasks verified. You can now submit your final project."
+                            : "Complete and get verification for all tasks to unlock final submission."}
                     </p>
 
                     <Separator className="my-2" />
@@ -137,6 +202,34 @@ const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
                     </Button>
                 </div>
             </div>
+
+            {/* Submit Update Modal */}
+            <Dialog open={submitModalOpen} onOpenChange={setSubmitModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Submit Task Update</DialogTitle>
+                        <DialogDescription>
+                            Provide a professional update to the recruiter.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Completion Note</Label>
+                            <Textarea
+                                value={submissionNote}
+                                onChange={(e) => setSubmissionNote(e.target.value)}
+                                className="min-h-[120px]"
+                                placeholder="Details about this task completion..."
+                            />
+                            <p className="text-xs text-muted-foreground">This note will be sent to the recruiter for verification.</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSubmitModalOpen(false)}>Cancel</Button>
+                        <Button onClick={handleConfirmSubmit}>Submit for Verification</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 };

@@ -5,7 +5,7 @@ import { Input } from "@/ui/input"
 import { Textarea } from "@/ui/textarea"
 import { useUser } from "@clerk/clerk-react"
 import axios from "axios"
-import { X, Briefcase, User, Loader2, Globe, MapPin, Building2 } from "lucide-react"
+import { X, Briefcase, User, Loader2, Globe, MapPin, Building2, FileText, Upload, Plus, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent } from "@/ui/card"
@@ -139,12 +139,70 @@ const Onboarding = () => {
     const navigate = useNavigate()
 
     const [step, setStep] = useState('role-selection');
-    const [userType, setUserType] = useState(''); // 'Candidate' | 'Recruiter'
+    const [userType, setUserType] = useState('Candidate'); // 'Candidate' | 'Recruiter' // Auto-set to candidate for testing if needed, but defaulting empty is safer usually. The previous was empty.
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     // Candidate State
     const [selectedRole, setSelectedRole] = useState("")
     const [selectedSkills, setSelectedSkills] = useState([])
+    const [summary, setSummary] = useState("")
+    const [workExperience, setWorkExperience] = useState([])
+    const [education, setEducation] = useState({
+        institution: "",
+        degree: "",
+        fieldOfStudy: "",
+        startDate: "",
+        endDate: "",
+        isOngoing: false
+    })
+    const [isUploadingResume, setIsUploadingResume] = useState(false)
+    const fileInputRef = useRef(null)
+
+    const handleResumeUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploadingResume(true);
+        const formData = new FormData();
+        formData.append("resume", file);
+
+        try {
+            const res = await axios.post("http://localhost:5678/webhook-test/3e244d48-20a7-47a8-bed9-66a20a6f6ebe", formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+
+            const data = res.data;
+            if (data?.profile) {
+                const p = data.profile;
+                if (p.summary) setSummary(p.summary);
+                if (p.skills) setSelectedSkills(prev => [...new Set([...prev, ...p.skills])]);
+                if (p.workExperience) setWorkExperience(p.workExperience);
+                if (p.education) setEducation(p.education);
+            }
+        } catch (error) {
+            console.error("Resume upload failed", error);
+        } finally {
+            setIsUploadingResume(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
+
+    const addExperience = () => {
+        setWorkExperience([
+            ...workExperience,
+            { role: "", company: "", location: "", startDate: "", endDate: "", isCurrent: false, description: "" }
+        ])
+    }
+
+    const removeExperience = (index) => {
+        setWorkExperience(workExperience.filter((_, i) => i !== index))
+    }
+
+    const updateExperience = (index, field, value) => {
+        const newExp = [...workExperience]
+        newExp[index][field] = value
+        setWorkExperience(newExp)
+    }
 
     // Recruiter State
     const [companyName, setCompanyName] = useState("");
@@ -173,6 +231,9 @@ const Onboarding = () => {
                     role: finalRole,
                     jobTitle: selectedRole,
                     skills: selectedSkills,
+                    summary,
+                    workExperience,
+                    education,
                     experienceLevel: "Entry Level",
                     jobTypes: ["Contract", "Freelance"],
                     companies: [],
@@ -286,6 +347,42 @@ const Onboarding = () => {
 
                 {userType === 'Candidate' ? (
                     <div className="space-y-8">
+                        {/* Resume Upload */}
+                        <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                                <FileText className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-100">Auto-fill with Resume</h3>
+                                <p className="text-sm text-indigo-600/80 dark:text-indigo-400/80 max-w-xs mx-auto">
+                                    Upload your resume to automatically populate your profile details.
+                                </p>
+                            </div>
+                            <input
+                                type="file"
+                                accept=".pdf,.doc,.docx"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleResumeUpload}
+                            />
+                            <Button
+                                variant="outline"
+                                className="border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploadingResume}
+                            >
+                                {isUploadingResume ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Parsing Resume...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="w-4 h-4 mr-2" /> Upload Resume
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                                 Primary Role <span className="text-red-500">*</span>
@@ -298,13 +395,164 @@ const Onboarding = () => {
                             />
                         </div>
 
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                Professional Summary
+                            </label>
+                            <Textarea
+                                value={summary}
+                                onChange={(e) => setSummary(e.target.value)}
+                                placeholder="Briefly describe your professional background..."
+                                className="min-h-[100px]"
+                            />
+                        </div>
+
                         <MultiSelect
-                            label="Core Skills / Tech Stack"
+                            label="Core Skills"
                             placeholder="Type to search skills..."
                             options={skillsList}
                             value={selectedSkills}
                             onChange={setSelectedSkills}
                         />
+
+                        {/* Experience Section */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Work Experience
+                                </label>
+                                <Button variant="outline" size="sm" onClick={addExperience}>
+                                    <Plus className="w-4 h-4 mr-2" /> Add
+                                </Button>
+                            </div>
+
+                            {workExperience.length === 0 && (
+                                <div className="text-center p-8 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-500">
+                                    No experience added yet
+                                </div>
+                            )}
+
+                            {workExperience.map((exp, index) => (
+                                <Card key={index} className="relative overflow-hidden">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 h-8 w-8 text-neutral-400 hover:text-red-500"
+                                        onClick={() => removeExperience(index)}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                    <CardContent className="p-4 space-y-4 pt-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-medium">Role</label>
+                                                <Input
+                                                    value={exp.role || ''}
+                                                    onChange={(e) => updateExperience(index, 'role', e.target.value)}
+                                                    placeholder="e.g. Frontend Developer"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-medium">Company</label>
+                                                <Input
+                                                    value={exp.company || ''}
+                                                    onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                                                    placeholder="e.g. Acme Corp"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-medium">Location</label>
+                                                <Input
+                                                    value={exp.location || ''}
+                                                    onChange={(e) => updateExperience(index, 'location', e.target.value)}
+                                                    placeholder="City, Country"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-medium">Date Range</label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        value={exp.startDate || ''}
+                                                        onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
+                                                        placeholder="Start"
+                                                    />
+                                                    <Input
+                                                        value={exp.endDate || ''}
+                                                        onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
+                                                        placeholder="End"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium">Description</label>
+                                            <Textarea
+                                                value={exp.description || ''}
+                                                onChange={(e) => updateExperience(index, 'description', e.target.value)}
+                                                placeholder="Describe your responsibilities..."
+                                                className="h-20"
+                                            />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+
+                        {/* Education Section */}
+                        <div className="space-y-4">
+                            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                Education
+                            </label>
+                            <Card>
+                                <CardContent className="p-4 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium">Institution</label>
+                                            <Input
+                                                value={education.institution || ''}
+                                                onChange={(e) => setEducation({ ...education, institution: e.target.value })}
+                                                placeholder="University / College"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium">Degree</label>
+                                            <Input
+                                                value={education.degree || ''}
+                                                onChange={(e) => setEducation({ ...education, degree: e.target.value })}
+                                                placeholder="e.g. B.Tech"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium">Field of Study</label>
+                                            <Input
+                                                value={education.fieldOfStudy || ''}
+                                                onChange={(e) => setEducation({ ...education, fieldOfStudy: e.target.value })}
+                                                placeholder="e.g. Computer Science"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium">Year</label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={education.startDate || ''}
+                                                    onChange={(e) => setEducation({ ...education, startDate: e.target.value })}
+                                                    placeholder="Start"
+                                                />
+                                                <Input
+                                                    value={education.endDate || ''}
+                                                    onChange={(e) => setEducation({ ...education, endDate: e.target.value })}
+                                                    placeholder="End"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
 
                         <div className="pt-4 flex justify-end">
                             <Button

@@ -14,6 +14,9 @@ export const onboardingController = async (req, res) => {
             lastName,
             email,
             imageUrl,
+            summary,
+            workExperience,
+            education,
         } = req.body;
 
         if (!clerkId) {
@@ -32,6 +35,9 @@ export const onboardingController = async (req, res) => {
                 lastName,
                 email,
                 imageUrl,
+                summary,
+                workExperience,
+                education,
             },
             { merge: true },
         );

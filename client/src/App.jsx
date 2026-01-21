@@ -14,14 +14,15 @@ import MyProposals from "./pages/Candidate/MyProposals";
 import ActiveProjects from "./pages/Candidate/ActiveProjects";
 import VideoIntro from "./pages/Candidate/VideoIntro";
 import SubmitWork from "./pages/Candidate/SubmitWork";
+import MyInsights from "./pages/Candidate/MyInsights";
 
 // Recruiter Pages
 import RecruiterDashboard from "./pages/Recruiter/RecruiterDashboard";
 import PostJob from "./pages/Recruiter/PostJob";
 import ManageJobs from "./pages/Recruiter/ManageJobs";
 import Applications from "./pages/Recruiter/Applications";
-import Interviews from "./pages/Recruiter/Interviews";
 import CompanyProfile from "./pages/Recruiter/CompanyProfile";
+import ActiveWork from "./pages/Recruiter/ActiveWork";
 import { Toaster } from "sonner";
 
 const App = () => {
@@ -58,9 +59,9 @@ const App = () => {
                             <MyAccount />
                         </ProtectedRoute>
                     } />
-                    <Route path="job-preferences" element={
+                    <Route path="my-insights" element={
                         <ProtectedRoute>
-                            <JobPreferences />
+                            <MyInsights />
                         </ProtectedRoute>
                     } />
 
@@ -111,9 +112,9 @@ const App = () => {
                             <Applications />
                         </RoleProtected>
                     } />
-                    <Route path="recruiter/interviews" element={
+                    <Route path="recruiter/active-work" element={
                         <RoleProtected allowedRole="Recruiter">
-                            <Interviews />
+                            <ActiveWork />
                         </RoleProtected>
                     } />
                     <Route path="recruiter/profile" element={

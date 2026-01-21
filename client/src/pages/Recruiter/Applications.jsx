@@ -4,13 +4,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Select } from "@/ui/select";
-import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap } from "lucide-react";
 import { Input } from "@/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
-import { toast } from "sonner"; // Assuming sonner is installed or handle alert
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/dialog";
+import { DialogTrigger } from '@radix-ui/react-dialog';
 
 const Applications = () => {
     const [searchParams] = useSearchParams();
@@ -20,6 +22,7 @@ const Applications = () => {
     const [statusFilter, setStatusFilter] = useState("All");
     const [jobStatus, setJobStatus] = useState("Active");
     const [analyzing, setAnalyzing] = useState({});
+    const [selectedCandidate, setSelectedCandidate] = useState(null);
 
     useEffect(() => {
         const fetchApplicants = async () => {
@@ -86,12 +89,13 @@ const Applications = () => {
         }
     };
 
-    const handleJobAction = async (action) => {
+    const handleJobAction = async (action, task = "") => {
         // action: "SubmissionOpen", "Closed"
         try {
             await axios.post(`${import.meta.env.VITE_SERVER_API}/api/jobs/update`, {
                 jobId: jobId,
-                status: action
+                status: action,
+                submissionTask: task // Send the task description to backend
             });
             setJobStatus(action);
             if (action === "SubmissionOpen") {
@@ -114,6 +118,17 @@ const Applications = () => {
             return ["Shortlisted", "Work Submitted", "Interview", "Hired"].includes(c.status);
         }
         return c.status === statusFilter;
+    }).sort((a, b) => {
+        // Custom Priority Sort: Hired > Interview > Work Submitted > Shortlisted > Applied > Rejected
+        const priority = {
+            "Hired": 6,
+            "Interview": 5,
+            "Work Submitted": 4,
+            "Shortlisted": 3,
+            "Applied": 1,
+            "Rejected": 0
+        };
+        return (priority[b.status] || 0) - (priority[a.status] || 0);
     });
 
     if (isLoading) {
@@ -147,12 +162,40 @@ const Applications = () => {
 
                 <div className="flex gap-2">
                     {jobStatus === "Active" && (
-                        <Button
-                            className="bg-black hover:bg-neutral-800 text-white"
-                            onClick={() => handleJobAction("SubmissionOpen")}
-                        >
-                            Start Submission Phase
-                        </Button>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button className="bg-black hover:bg-neutral-800 text-white">
+                                    Start Submission Phase
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Start Submission Phase</DialogTitle>
+                                    <DialogDescription>
+                                        Define the task or project details for the candidates. They will see this instruction when they submit their work.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Task Instructions</label>
+                                        <textarea
+                                            id="submissionTaskInput"
+                                            className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            placeholder="E.g., Please create a Figma mockup for the login page based on our branding guidelines..."
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={() => {
+                                            const task = document.getElementById("submissionTaskInput").value;
+                                            handleJobAction("SubmissionOpen", task);
+                                        }}
+                                        className="w-full"
+                                    >
+                                        Activate Submission Phase
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     )}
                     {jobStatus === "SubmissionOpen" && (
                         <Button variant="destructive" onClick={() => handleJobAction("Closed")}>
@@ -196,8 +239,17 @@ const Applications = () => {
                                     </Avatar>
 
                                     <div className="flex-1 text-center md:text-left space-y-1">
-                                        <div className="flex items-center justify-center md:justify-start gap-2">
-                                            <h3 className="text-lg font-semibold">{candidate.firstName} {candidate.lastName}</h3>
+                                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                                            <h3 className="text-xl font-bold">{candidate.firstName} {candidate.lastName}</h3>
+                                            {candidate.suitabilityScore !== undefined && (
+                                                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-sm border ${candidate.suitabilityScore >= 80 ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                                                    candidate.suitabilityScore >= 50 ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                                        "bg-rose-100 text-rose-700 border-rose-200"
+                                                    }`} title="AI Suitability Score">
+                                                    <Sparkles className="w-3.5 h-3.5" />
+                                                    {candidate.suitabilityScore}% Match
+                                                </div>
+                                            )}
                                             {candidate.status === 'Hired' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
                                         </div>
 
@@ -252,8 +304,8 @@ const Applications = () => {
                                                                     <span className="font-semibold text-sm text-purple-900 dark:text-purple-100">AI Scorecard</span>
                                                                 </div>
                                                                 <Badge className={`${candidate.aiScore >= 8 ? "bg-green-500 hover:bg-green-600" :
-                                                                        candidate.aiScore >= 5 ? "bg-yellow-500 hover:bg-yellow-600" :
-                                                                            "bg-red-500 hover:bg-red-600"
+                                                                    candidate.aiScore >= 5 ? "bg-yellow-500 hover:bg-yellow-600" :
+                                                                        "bg-red-500 hover:bg-red-600"
                                                                     } text-white border-0`}>
                                                                     {candidate.aiScore}/10
                                                                 </Badge>
@@ -292,8 +344,15 @@ const Applications = () => {
                                             </div>
                                         )}
                                     </div>
-
                                     <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0 flex-col sm:flex-row">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setSelectedCandidate(candidate)}
+                                        >
+                                            View Profile
+                                        </Button>
+
                                         {/* Quick Actions for Submission Phase */}
                                         {candidate.status === 'Work Submitted' && (
                                             <>
@@ -326,6 +385,136 @@ const Applications = () => {
                     ))
                 )}
             </div>
+
+            {/* Candidate Profile Modal */}
+            <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Candidate Profile</DialogTitle>
+                    </DialogHeader>
+                    {selectedCandidate && (
+                        <div className="space-y-6">
+                            {/* Header Info */}
+                            <div className="flex items-center gap-4">
+                                <Avatar className="h-20 w-20 border">
+                                    <AvatarImage src={selectedCandidate.imageUrl} />
+                                    <AvatarFallback className="text-lg">
+                                        {(selectedCandidate.firstName?.[0] || "") + (selectedCandidate.lastName?.[0] || "")}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h2 className="text-2xl font-bold">{selectedCandidate.firstName} {selectedCandidate.lastName}</h2>
+                                    <p className="text-muted-foreground">{selectedCandidate.email}</p>
+                                    <div className="flex gap-2 mt-2">
+                                        <Badge variant="secondary">{selectedCandidate.experienceLevel || "Experience Not Specified"}</Badge>
+                                        {selectedCandidate.resumeUrl && (
+                                            <a href={selectedCandidate.resumeUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                                                <ExternalLink className="w-3 h-3" /> Resume
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* AI Suitability Match Score */}
+                            {selectedCandidate.suitabilityScore !== undefined && (
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900 rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                                            <Sparkles className="w-4 h-4 text-blue-500" /> AI Compatibility Match
+                                        </h3>
+                                        <Badge className={`text-base px-3 py-1 ${selectedCandidate.suitabilityScore >= 80 ? "bg-green-600" :
+                                            selectedCandidate.suitabilityScore >= 50 ? "bg-yellow-500" : "bg-red-500"
+                                            } hover:brightness-110`}>
+                                            {selectedCandidate.suitabilityScore}% Match
+                                        </Badge>
+                                    </div>
+                                    <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed italic">
+                                        "{selectedCandidate.suitabilityAnalysis}"
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Summary */}
+                            {selectedCandidate.summary && (
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <FileText className="w-4 h-4" /> About
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed p-3 bg-neutral-50 dark:bg-neutral-900 rounded-lg">
+                                        {selectedCandidate.summary}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Skills */}
+                            {selectedCandidate.skills && selectedCandidate.skills.length > 0 && (
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4" /> Skills
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedCandidate.skills.map((skill, i) => (
+                                            <Badge key={i} variant="outline" className="px-3 py-1">
+                                                {skill}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Work Experience */}
+                            {selectedCandidate.workExperience && selectedCandidate.workExperience.length > 0 && (
+                                <div className="space-y-3">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <Briefcase className="w-4 h-4" /> Experience
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {selectedCandidate.workExperience.map((exp, i) => (
+                                            <div key={i} className="border-l-2 border-neutral-200 dark:border-neutral-800 pl-4 pb-1">
+                                                <h4 className="font-medium">{exp.role}</h4>
+                                                <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                                                    <span>{exp.company}</span>
+                                                    <span>{exp.startDate} - {exp.endDate || "Present"}</span>
+                                                </div>
+                                                {exp.description && (
+                                                    <p className="text-sm mt-1 text-neutral-600 dark:text-neutral-400">
+                                                        {exp.description}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Education */}
+                            {selectedCandidate.education && (selectedCandidate.education.institution || Array.isArray(selectedCandidate.education)) && (
+                                <div className="space-y-3">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <GraduationCap className="w-4 h-4" /> Education
+                                    </h3>
+                                    {Array.isArray(selectedCandidate.education) ? (
+                                        selectedCandidate.education.map((edu, i) => (
+                                            <div key={i} className="flex flex-col text-sm border p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/50">
+                                                <span className="font-bold">{edu.institution}</span>
+                                                <span className="text-muted-foreground">{edu.degree} • {edu.fieldOfStudy}</span>
+                                                <span className="text-xs text-muted-foreground mt-1">{edu.startDate} - {edu.endDate}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="flex flex-col text-sm border p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/50">
+                                            <span className="font-bold">{selectedCandidate.education.institution}</span>
+                                            <span className="text-muted-foreground">{selectedCandidate.education.degree} • {selectedCandidate.education.fieldOfStudy}</span>
+                                            <span className="text-xs text-muted-foreground mt-1">{selectedCandidate.education.startDate} - {selectedCandidate.education.endDate}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

@@ -19,6 +19,8 @@ const MyProposals = () => {
     const [selectedJobId, setSelectedJobId] = useState(null);
     const [submissionLink, setSubmissionLink] = useState("");
     const [submissionDesc, setSubmissionDesc] = useState("");
+    const [submissionImages, setSubmissionImages] = useState("");
+    const [submissionNotes, setSubmissionNotes] = useState("");
 
     useEffect(() => {
         const fetchProposals = async () => {
@@ -41,6 +43,8 @@ const MyProposals = () => {
         setSubmitOpen(true);
     };
 
+    const selectedProposal = proposals.find(p => p.jobId === selectedJobId);
+
     const handleSubmitWork = async () => {
         if (!selectedJobId || !submissionLink) return;
         try {
@@ -48,7 +52,9 @@ const MyProposals = () => {
                 jobId: selectedJobId,
                 userId: user.id,
                 submissionLink,
-                description: submissionDesc
+                description: submissionDesc,
+                images: submissionImages.split(',').map(url => url.trim()).filter(url => url),
+                additionalNotes: submissionNotes
             });
 
             // Update local state
@@ -59,6 +65,8 @@ const MyProposals = () => {
             setSubmitOpen(false);
             setSubmissionLink("");
             setSubmissionDesc("");
+            setSubmissionImages("");
+            setSubmissionNotes("");
         } catch (error) {
             console.error("Error submitting work:", error);
             // Optionally add toast error here
@@ -158,11 +166,19 @@ const MyProposals = () => {
             )}
 
             <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[625px]">
                     <DialogHeader>
                         <DialogTitle>Submit Proof of Work</DialogTitle>
-                        <DialogDescription>
-                            Upload your project files or provide a link to your repository/portfolio.
+                        <DialogDescription className="space-y-2">
+                            <p>Upload your project files or provide a link to your repository/portfolio.</p>
+                            {selectedProposal && selectedProposal.submissionTask && (
+                                <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md border border-blue-100 dark:border-blue-800 mt-2">
+                                    <span className="font-semibold text-blue-800 dark:text-blue-200 block mb-1 text-xs uppercase tracking-wide">Recruiter's Task:</span>
+                                    <p className="text-sm text-neutral-700 dark:text-neutral-300 italic">
+                                        "{selectedProposal.submissionTask}"
+                                    </p>
+                                </div>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -178,19 +194,44 @@ const MyProposals = () => {
                                 className="col-span-3"
                             />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="desc" className="text-right">
-                                Description
-                            </Label>
-                            <Textarea
-                                id="desc"
-                                value={submissionDesc}
-                                onChange={(e) => setSubmissionDesc(e.target.value)}
-                                placeholder="Briefly describe your approach..."
-                                className="col-span-3"
-                            />
-                        </div>
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="desc" className="text-right">
+                            Description
+                        </Label>
+                        <Textarea
+                            id="desc"
+                            value={submissionDesc}
+                            onChange={(e) => setSubmissionDesc(e.target.value)}
+                            placeholder="Briefly describe your approach..."
+                            className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="images" className="text-right">
+                            Image URLs
+                        </Label>
+                        <Input
+                            id="images"
+                            value={submissionImages}
+                            onChange={(e) => setSubmissionImages(e.target.value)}
+                            placeholder="Comma separated URLs..."
+                            className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="notes" className="text-right">
+                            Challenges/Notes
+                        </Label>
+                        <Textarea
+                            id="notes"
+                            value={submissionNotes}
+                            onChange={(e) => setSubmissionNotes(e.target.value)}
+                            placeholder="Any challenges faced or notes for the recruiter..."
+                            className="col-span-3"
+                        />
+                    </div>
+                    {/* </div> */}
                     <DialogFooter>
                         <Button type="submit" onClick={handleSubmitWork}>Submit for Review</Button>
                     </DialogFooter>
