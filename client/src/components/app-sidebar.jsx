@@ -65,8 +65,8 @@ const data = {
                     url: "/dashboard/my-profile",
                 },
                 {
-                    title: "Preferences",
-                    url: "/dashboard/job-preferences",
+                    title: "My Insights",
+                    url: "/dashboard/my-insights",
                 },
             ],
         },
