@@ -191,26 +191,57 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                             )}
 
                             {/* Tasks / Milestones Section */}
-                            {job.tasks && job.tasks.length > 0 && (
+                            {/* Tasks / Milestones Section */}
+                            {(job.modules?.length > 0 || job.tasks?.length > 0) && (
                                 <div>
                                     <h3 className="text-lg font-bold flex items-center gap-2 mb-4 text-neutral-900 dark:text-neutral-100">
                                         <div className="w-1 h-6 bg-orange-500 rounded-full" />
                                         Tasks & Milestones
                                     </h3>
-                                    <div className="grid gap-3">
-                                        {job.tasks.map((task, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:border-orange-200 dark:hover:border-orange-900/50 transition-colors">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-xs font-bold">
-                                                        {idx + 1}
+                                    
+                                    <div className="space-y-4">
+                                        {/* Modular Structure Support */}
+                                        {job.modules && job.modules.length > 0 ? (
+                                            job.modules.map((module, mIdx) => (
+                                                <div key={mIdx} className="space-y-2">
+                                                    <div className="flex items-center gap-2 px-1">
+                                                        <h4 className="font-semibold text-sm text-neutral-800 dark:text-neutral-200">{module.title}</h4>
                                                     </div>
-                                                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{task.description}</span>
+                                                    <div className="grid gap-2">
+                                                        {module.tasks.map((task, tIdx) => (
+                                                            <div key={tIdx} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:border-orange-200 dark:hover:border-orange-900/50 transition-colors">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-5 h-5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-[10px] font-bold">
+                                                                        {tIdx + 1}
+                                                                    </div>
+                                                                    <span className="font-medium text-sm text-neutral-700 dark:text-neutral-300">{task.description}</span>
+                                                                </div>
+                                                                <Badge variant="secondary" className="font-mono text-xs font-bold bg-neutral-100 dark:bg-neutral-800">
+                                                                    ${task.payout}
+                                                                </Badge>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                                <Badge variant="secondary" className="font-mono font-bold bg-neutral-100 dark:bg-neutral-800">
-                                                    ${task.payout}
-                                                </Badge>
+                                            ))
+                                        ) : (
+                                            /* Legacy Flat Structure */
+                                            <div className="grid gap-3">
+                                                {job.tasks.map((task, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:border-orange-200 dark:hover:border-orange-900/50 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-xs font-bold">
+                                                                {idx + 1}
+                                                            </div>
+                                                            <span className="font-medium text-neutral-700 dark:text-neutral-300">{task.description}</span>
+                                                        </div>
+                                                        <Badge variant="secondary" className="font-mono font-bold bg-neutral-100 dark:bg-neutral-800">
+                                                            ${task.payout}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 </div>
                             )}

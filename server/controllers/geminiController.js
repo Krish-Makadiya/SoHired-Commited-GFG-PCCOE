@@ -66,34 +66,42 @@ export const generateJobDetails = async (req, res) => {
     const prompt = `You are an expert technical project manager.
         User Idea: "${projectIdea}"
         
-        Generate 3 distinct project implementation options (e.g., MVP, Standard, Advanced) based on this idea.
-        For each option, estimate the number of hours required.
-        Calculate the budget based on a rate of $30/hour.
+        Generate 3 distinct project implementation options (e.g., MVP, Standard, Advanced).
+        Structure the project into **Modules** (e.g. Frontend, Backend, Database, Infrastructure).
         
-        Return a valid JSON object with the key "options" containing an array of 3 objects.
+        For each option:
+        - Estimate total hours.
+        - Calculate budget at $30/hr.
+        - Break down into 3-5 Modules.
+        - For each Module, provide specific tasks.
+        
+        Return a valid JSON object with key "options" containing an array of 3 objects.
         Structure:
         {
             "options": [
                 {
-                    "title": "Short catchy title (e.g. MVP)",
+                    "title": "Option Title",
                     "type": "Contract", 
-                    "description": "Professional job description",
-                    "techStack": "React, Node, etc (comma separated string)",
-                    "timeline": "e.g. 1-2 Weeks",
-                    "totalHours": 50,
-                    "budget": 1500,
-                    "tasks": [
+                    "description": "Description",
+                    "techStack": "React, Node, etc",
+                    "timeline": "e.g. 1 Month",
+                    "totalHours": 100,
+                    "budget": 3000,
+                    "modules": [
                         {
-                            "description": "Task description",
-                            "hours": 10,
-                            "payout": 300
+                            "title": "Module 1: Frontend",
+                            "description": "UI implementation",
+                            "estimatedHours": 20,
+                            "tasks": [
+                                { "description": "Login Page", "payout": 300 },
+                                { "description": "Dashboard", "payout": 300 }
+                            ]
                         }
                     ]
                 }
             ]
         }
-        Ensure "budget" is approximately "totalHours" * 30.
-        Ensure sum of task payouts equals budget.
+        Ensure sum of module task payouts roughly equals budget.
         Do not include markdown formatting.`;
 
     const result = await model.generateContent(prompt);

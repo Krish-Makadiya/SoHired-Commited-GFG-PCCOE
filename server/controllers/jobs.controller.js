@@ -623,6 +623,7 @@ export const getCandidateApplicationsController = async (req, res) => {
                     skills: jobData.skills || jobData.techStack || [],
                     submissionTask: jobData.submissionTask || "",
                     taskProgress: applicantData.taskProgress || {},
+                    modules: jobData.modules || [],
                 };
             }),
         );
@@ -758,7 +759,7 @@ export const analyzeSubmissionController = async (req, res) => {
 export const updateTaskProgressController = async (req, res) => {
     try {
         const { jobId, applicantId } = req.params;
-        const { taskIndex, status, submissionNote } = req.body; // status: 'submitted', 'verified', 'rejected'
+        const { taskIndex, status, submissionNote, feedback } = req.body; // status: 'submitted', 'verified', 'rejected', 'changes_requested'
 
         if (taskIndex === undefined || !status) {
             return res
@@ -787,6 +788,7 @@ export const updateTaskProgressController = async (req, res) => {
                 submissionNote ||
                 currentProgress[taskIndex]?.submissionNote ||
                 "",
+            feedback: feedback || currentProgress[taskIndex]?.feedback || "",
             updatedAt: new Date().toISOString(),
         };
 
@@ -851,6 +853,7 @@ export const getRecruiterActiveWorkController = async (req, res) => {
                         appliedAt: appData.appliedAt,
                         taskProgress: appData.taskProgress || {},
                         tasks: jobData.tasks || [],
+                        modules: jobData.modules || [],
                         submissionLink: appData.submissionLink,
                         submissionDescription: appData.submissionDescription,
                     });

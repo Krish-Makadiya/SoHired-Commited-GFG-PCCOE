@@ -8,7 +8,7 @@ import { Button } from "@/ui/button";
 import { Badge } from "@/ui/badge";
 import { Progress } from "@/ui/progress";
 import { Checkbox } from "@/ui/checkbox";
-import { Clock, FileCheck, UploadCloud, Loader2, DollarSign, MessageCircle, Send, FileText, Calendar, Building2, Info, CheckCircle2 } from "lucide-react";
+import { Clock, FileCheck, UploadCloud, Loader2, DollarSign, MessageCircle, Send, FileText, Calendar, Building2, Info, CheckCircle2, Lock } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
@@ -25,7 +25,7 @@ const mockTasks = [
 
 const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
     const navigate = useNavigate();
-    const { user } = useUser();
+    // const { user } = useUser(); // user is not used here
     const tasks = project.tasks && project.tasks.length > 0 ? project.tasks : mockTasks;
 
     // Local state for optimistic updates
@@ -38,9 +38,30 @@ const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
     const [submissionNote, setSubmissionNote] = useState("");
 
     const handleOpenSubmitModal = (index) => {
-        const task = tasks[index];
+        let task = tasks[index];
+        
+        // If tasks array is not populated but modules are (e.g. detailed view), find task via modules
+        if (!task && project.modules) {
+             let count = 0;
+             for (const mod of project.modules) {
+                 if (index < count + mod.tasks.length) {
+                     task = mod.tasks[index - count];
+                     break;
+                 }
+                 count += mod.tasks.length;
+             }
+        }
+
         setActiveTaskIndex(index);
-        setSubmissionNote(`I have completed the task: "${task.description}".\n\nUpdates:\n- \n- \n\nPlease review.`);
+        
+        // Pre-fill existing note if available (useful for fixing changes)
+        const existingNote = taskProgress[index]?.submissionNote;
+        if (existingNote) {
+            setSubmissionNote(existingNote);
+        } else {
+            setSubmissionNote(`I have completed the task: "${task?.description || 'Task'}".\n\nUpdates:\n- \n- \n\nPlease review.`);
+        }
+        
         setSubmitModalOpen(true);
     };
 
@@ -119,53 +140,195 @@ const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
                         <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
                             <FileCheck className="w-4 h-4" /> Project Tasks & Milestones
                         </h4>
-                        <div className="space-y-2 border rounded-lg p-2 bg-white dark:bg-black">
-                            {tasks.map((task, i) => {
-                                const status = taskProgress[i]?.status;
-                                const isVerified = status === 'verified';
-                                const isSubmitted = status === 'submitted';
+                        <div className="space-y-4">
+                            {/* Support for Modular Structure */}
+                            {project.modules && project.modules.length > 0 ? (
+                                project.modules.map((module, mIdx) => {
+                                    // Calculate if this module is locked (sequential progression)
+                                    let isModuleLocked = false;
+                                    if (mIdx > 0) {
+                                        let previousTasksCount = 0;
+                                        for (let i = 0; i < mIdx; i++) {
+                                            previousTasksCount += project.modules[i].tasks.length;
+                                        }
+                                        
+                                        for (let i = 0; i < previousTasksCount; i++) {
+                                            if (taskProgress[i]?.status !== 'verified') {
+                                                isModuleLocked = true;
+                                                break;
+                                            }
+                                        }
+                                    }
 
-                                return (
-                                    <div key={i} className={`flex items-center justify-between space-x-3 p-3 rounded-md transition-all duration-200 ${isVerified ? 'bg-green-50/50 dark:bg-green-900/20 border border-green-100 dark:border-green-900' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-transparent'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isVerified ? 'bg-green-500 border-green-500 text-white' : 'border-neutral-300 dark:border-neutral-600'}`}>
-                                                {isVerified && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                    return (
+                                        <div key={mIdx} className={`border rounded-lg overflow-hidden transition-all ${isModuleLocked ? 'opacity-50 border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900/20' : 'border-neutral-200 dark:border-neutral-800'}`}>
+                                            <div className="bg-neutral-50 dark:bg-neutral-800/50 px-4 py-3 border-b flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                     {isModuleLocked && <Lock className="w-4 h-4 text-muted-foreground" />}
+                                                    <div>
+                                                        <h5 className="font-semibold text-sm flex items-center gap-2">
+                                                            {module.title}
+                                                            {isModuleLocked && <span className="text-[10px] font-normal text-muted-foreground bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-full">Locked</span>}
+                                                        </h5>
+                                                        <p className="text-xs text-muted-foreground">{module.description}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs font-medium text-muted-foreground">
+                                                    Deadline: {module.deadline ? new Date(module.deadline).toLocaleDateString() : 'N/A'}
+                                                </div>
                                             </div>
+                                            <div className="p-3 space-y-2">
+                                                {module.tasks.map((task, tIdx) => {
+                                                    // Calculate global index for compatibility with flat taskProgress map
+                                                    let globalIndex = 0;
+                                                    for(let i=0; i<mIdx; i++) {
+                                                        globalIndex += project.modules[i].tasks.length;
+                                                    }
+                                                    globalIndex += tIdx;
 
-                                            <div className="grid gap-1 leading-none">
-                                                <span className={`text-sm font-medium leading-none transition-colors ${isVerified ? 'text-green-800 dark:text-green-300 line-through opacity-70' : ''}`}>
-                                                    {task.description}
-                                                </span>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Payout Release: {task.payout}
-                                                </p>
+                                                    const progressData = taskProgress[globalIndex];
+                                                    const status = progressData?.status;
+                                                    const isVerified = status === 'verified';
+                                                    const isSubmitted = status === 'submitted';
+                                                    const isChangesRequested = status === 'changes_requested';
+
+                                                    return (
+                                                        <div key={tIdx} className={`flex flex-col gap-2 p-3 rounded-md transition-all duration-200 ${isVerified ? 'bg-green-50/50 dark:bg-green-900/20 border border-green-100 dark:border-green-900' : isChangesRequested ? 'bg-red-50 border border-red-200' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-transparent'}`}>
+                                                            <div className="flex items-center justify-between space-x-3">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isVerified ? 'bg-green-500 border-green-500 text-white' : 'border-neutral-300 dark:border-neutral-600'}`}>
+                                                                        {isVerified && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                                    </div>
+
+                                                                    <div className="grid gap-1 leading-none">
+                                                                        <span className={`text-sm font-medium leading-none transition-colors ${isVerified ? 'text-green-800 dark:text-green-300 line-through opacity-70' : ''}`}>
+                                                                            {task.description}
+                                                                        </span>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Payout Release: {task.payout}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    {isVerified ? (
+                                                                        <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50 text-xs gap-1">
+                                                                            <CheckCircle2 className="w-3 h-3" /> Verified
+                                                                        </Badge>
+                                                                    ) : isSubmitted ? (
+                                                                        <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
+                                                                            <Clock className="w-3 h-3" /> Pending Review
+                                                                        </Badge>
+                                                                    ) : isChangesRequested ? (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                                                            onClick={() => handleOpenSubmitModal(globalIndex)}
+                                                                        >
+                                                                            Fix & Resubmit
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs"
+                                                                            onClick={() => handleOpenSubmitModal(globalIndex)}
+                                                                            disabled={loadingTask === globalIndex || isModuleLocked}
+                                                                            title={isModuleLocked ? "Complete previous modules first" : "Mark as Done"}
+                                                                        >
+                                                                            {isModuleLocked ? <Lock className="w-3 h-3" /> : (loadingTask === globalIndex ? <Loader2 className="w-3 h-3 animate-spin" /> : "Mark Done")}
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {/* Recruiter Feedback Display */}
+                                                            {isChangesRequested && progressData?.feedback && (
+                                                                <div className="mt-2 p-3 bg-white rounded-md border border-red-100 text-sm">
+                                                                    <p className="font-semibold text-red-600 text-xs mb-1">Recruiter Feedback:</p>
+                                                                    <p className="text-neutral-700">{progressData.feedback}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
+                                    );
+                                })
+                            ) : (
+                            /* FALLBACK FOR FLAT TASKS */
+                            <div className="space-y-2 border rounded-lg p-2 bg-white dark:bg-black">
+                                {tasks.map((task, i) => {
+                                    const progressData = taskProgress[i];
+                                    const status = progressData?.status;
+                                    const isVerified = status === 'verified';
+                                    const isSubmitted = status === 'submitted';
+                                    const isChangesRequested = status === 'changes_requested';
 
-                                        <div>
-                                            {isVerified ? (
-                                                <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50 text-xs gap-1">
-                                                    <CheckCircle2 className="w-3 h-3" /> Verified
-                                                </Badge>
-                                            ) : isSubmitted ? (
-                                                <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
-                                                    <Clock className="w-3 h-3" /> Pending Review
-                                                </Badge>
-                                            ) : (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-7 text-xs"
-                                                    onClick={() => handleOpenSubmitModal(i)}
-                                                    disabled={loadingTask === i}
-                                                >
-                                                    {loadingTask === i ? <Loader2 className="w-3 h-3 animate-spin" /> : "Mark Done"}
-                                                </Button>
+                                    return (
+                                        <div key={i} className={`flex flex-col gap-2 p-3 rounded-md transition-all duration-200 ${isVerified ? 'bg-green-50/50 dark:bg-green-900/20 border border-green-100 dark:border-green-900' : isChangesRequested ? 'bg-red-50 border border-red-200' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 border border-transparent'}`}>
+                                            <div className="flex items-center justify-between space-x-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${isVerified ? 'bg-green-500 border-green-500 text-white' : 'border-neutral-300 dark:border-neutral-600'}`}>
+                                                        {isVerified && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                    </div>
+
+                                                    <div className="grid gap-1 leading-none">
+                                                        <span className={`text-sm font-medium leading-none transition-colors ${isVerified ? 'text-green-800 dark:text-green-300 line-through opacity-70' : ''}`}>
+                                                            {task.description}
+                                                        </span>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Payout Release: {task.payout}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    {isVerified ? (
+                                                        <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50 text-xs gap-1">
+                                                            <CheckCircle2 className="w-3 h-3" /> Verified
+                                                        </Badge>
+                                                    ) : isSubmitted ? (
+                                                        <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs gap-1">
+                                                            <Clock className="w-3 h-3" /> Pending Review
+                                                        </Badge>
+                                                    ) : isChangesRequested ? (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                                            onClick={() => handleOpenSubmitModal(i)}
+                                                        >
+                                                            Fix & Resubmit
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-7 text-xs"
+                                                            onClick={() => handleOpenSubmitModal(i)}
+                                                            disabled={loadingTask === i}
+                                                        >
+                                                            {loadingTask === i ? <Loader2 className="w-3 h-3 animate-spin" /> : "Mark Done"}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Recruiter Feedback Display - Flat List */}
+                                            {isChangesRequested && progressData?.feedback && (
+                                                <div className="mt-2 p-3 bg-red-50/50 rounded-md border border-red-100 text-sm">
+                                                    <p className="font-semibold text-red-600 text-xs mb-1">Recruiter Feedback:</p>
+                                                    <p className="text-neutral-700">{progressData.feedback}</p>
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
+                            )}
                         </div>
 
                         {/* Progress Bar */}
@@ -177,7 +340,7 @@ const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
                 </div>
 
                 {/* Sidebar Actions */}
-                <div className="bg-neutral-50 dark:bg-neutral-900/40 p-6 flex flex-col gap-3 min-w-[260px] border-t md:border-t-0 md:border-l justify-center">
+                <div className="bg-neutral-50 dark:bg-neutral-900/40 p-6 flex flex-col gap-3 min-w-[260px] border-t md:border-t-0 md:border-l">
                     <Button
                         className={`w-full gap-2 transition-all ${allTasksVerified ? "animate-pulse" : "opacity-80"}`}
                         onClick={() => navigate(`/dashboard/submit-work/${project.jobId}`)}

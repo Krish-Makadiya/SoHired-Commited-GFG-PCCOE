@@ -16,7 +16,9 @@ const ActiveWork = () => {
     const { user } = useUser();
     const [engagements, setEngagements] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [verifyingTask, setVerifyingTask] = useState(null);
+    // New state for Review Dialog
+    const [reviewState, setReviewState] = useState(null); // { engagement, task, globalIndex, candidateNote }
+    const [feedback, setFeedback] = useState("");
 
     useEffect(() => {
         const fetchActiveWork = async () => {
@@ -34,28 +36,40 @@ const ActiveWork = () => {
         fetchActiveWork();
     }, [user]);
 
-    const handleVerifyTask = async (jobId, applicantId, taskIndex) => {
+    const openReviewDialog = (engagement, task, globalIndex) => {
+        const candidateNote = engagement.taskProgress?.[globalIndex]?.submissionNote || "";
+        setReviewState({ engagement, task, globalIndex, candidateNote });
+        setFeedback(engagement.taskProgress?.[globalIndex]?.feedback || ""); // Load existing feedback if any (optional)
+    };
+
+    const handleVerifyTask = async (jobId, applicantId, taskIndex, status = 'verified') => {
         try {
             await axios.patch(`${import.meta.env.VITE_SERVER_API}/api/jobs/${jobId}/applicants/${applicantId}/tasks`, {
                 taskIndex,
-                status: 'verified'
+                status, // 'verified' or 'changes_requested'
+                feedback: feedback // Send feedback
             });
 
             // Update local state
             setEngagements(prev => prev.map(eng => {
                 if (eng.id === applicantId && eng.jobId === jobId) {
                     const updatedProgress = { ...eng.taskProgress };
-                    updatedProgress[taskIndex] = { ...updatedProgress[taskIndex], status: 'verified' };
+                    updatedProgress[taskIndex] = { 
+                        ...updatedProgress[taskIndex], 
+                        status, 
+                        feedback: feedback 
+                    };
                     return { ...eng, taskProgress: updatedProgress };
                 }
                 return eng;
             }));
 
-            toast.success("Task work verified successfully");
-            setVerifyingTask(null);
+            toast.success(status === 'verified' ? "Task verified successfully" : "Requested changes for task");
+            setReviewState(null);
+            setFeedback("");
         } catch (error) {
-            console.error("Error verifying task:", error);
-            toast.error("Failed to verify task");
+            console.error("Error updating task:", error);
+            toast.error("Failed to update task status");
         }
     };
 
@@ -114,27 +128,112 @@ const ActiveWork = () => {
 
                                 <CardContent className="p-6 space-y-6">
                                     {/* Progress */}
-                                    <div className="space-y-2">
+                                    {/* <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
                                             <span className="font-medium">Milestone Progress</span>
                                             <span className="text-muted-foreground">{completedCount} / {tasks.length} Verified</span>
                                         </div>
                                         <Progress value={progress} className="h-2" />
-                                    </div>
+                                    </div> */}
 
-                                    {/* Task List */}
-                                    <div className="space-y-3">
+                                    {/* Task List / Module List */}
+                                    <div className="space-y-4">
                                         <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
-                                            <CheckCircle2 className="w-4 h-4" /> Verify Milestones
+                                            <CheckCircle2 className="w-4 h-" /> Project Modules & Milestones
                                         </h4>
                                         <div className="grid gap-3">
-                                            {tasks.map((task, idx) => {
-                                                const taskState = engagement.taskProgress[idx]?.status; // 'submitted', 'verified'
+                            {/* Support for Modular Structure */}
+                                            {engagement.modules ? (
+                                                engagement.modules.map((module, mIdx) => {
+                                                    // Calculate Module Progress
+                                                    let moduleTotalTasks = module.tasks.length;
+                                                    let moduleVerifiedTasks = 0;
+                                                    let moduleStartIndex = 0;
+                                                    
+                                                    // Calculate global index start for this module
+                                                    for(let i=0; i<mIdx; i++) {
+                                                        moduleStartIndex += engagement.modules[i].tasks.length;
+                                                    }
+
+                                                    // Check verification status for tasks in this module
+                                                    for(let t=0; t<moduleTotalTasks; t++) {
+                                                        if(engagement.taskProgress?.[moduleStartIndex + t]?.status === 'verified') {
+                                                            moduleVerifiedTasks++;
+                                                        }
+                                                    }
+                                                    
+                                                    const moduleProgress = moduleTotalTasks > 0 ? (moduleVerifiedTasks / moduleTotalTasks) * 100 : 0;
+
+                                                    return (
+                                                        <div key={mIdx} className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
+                                                            <div className="bg-neutral-50 dark:bg-neutral-800/50 px-4 py-3 border-b flex flex-col gap-2">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div>
+                                                                        <h5 className="font-semibold text-sm">{module.title}</h5>
+                                                                        <p className="text-xs text-muted-foreground">{module.description}</p>
+                                                                    </div>
+                                                                    <div className="text-xs font-medium text-muted-foreground">
+                                                                        Deadline: {module.deadline ? new Date(module.deadline).toLocaleDateString() : 'N/A'}
+                                                                    </div>
+                                                                </div>
+                                                                {/* Module Progress Bar */}
+                                                                <div className="flex items-center gap-2">
+                                                                    <Progress value={moduleProgress} className="h-1.5 flex-1" />
+                                                                    <span className="text-xs text-muted-foreground font-medium">{Math.round(moduleProgress)}%</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-3 space-y-2">
+                                                                {module.tasks.map((task, tIdx) => {
+                                                                    const globalIndex = moduleStartIndex + tIdx;
+                                                                    const taskState = engagement.taskProgress?.[globalIndex]?.status; 
+                                                                    const isSubmitted = taskState === 'submitted';
+                                                                    const isVerified = taskState === 'verified';
+                                                                    const isChangesRequested = taskState === 'changes_requested';
+                                                                    
+                                                                    return (
+                                                                        <div key={tIdx} className={`flex items-center justify-between p-3 rounded-md border text-sm ${isSubmitted ? 'bg-yellow-50 border-yellow-200' : isChangesRequested ? 'bg-red-50 border-red-200' : 'bg-card border-border'}`}>
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isVerified ? 'bg-green-500 border-green-500 text-white' : 'border-neutral-300'}`}>
+                                                                                    {isVerified && <CheckCircle2 className="w-3 h-3" />}
+                                                                                </div>
+                                                                                <div className="flex flex-col">
+                                                                                    <span className={isVerified ? 'line-through text-muted-foreground' : ''}>{task.description}</span>
+                                                                                    {isChangesRequested && <span className="text-xs text-red-600 font-medium">Changes Requested</span>}
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div>
+                                                                                {isVerified ? (
+                                                                                     <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">Verified</Badge>
+                                                                                ) : isSubmitted ? (
+                                                                                    <Button 
+                                                                                        size="sm" 
+                                                                                        className="h-7 text-xs bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200"
+                                                                                        onClick={() => openReviewDialog(engagement, task, globalIndex)}
+                                                                                    >
+                                                                                        Review
+                                                                                    </Button>
+                                                                                ) : isChangesRequested ? (
+                                                                                     <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200">Revising</Badge>
+                                                                                ) : <span className="text-muted-foreground text-xs italic">Pending</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                            /* FALLBACK FOR LEGACY FLAT TASKS */
+                                            tasks.map((task, idx) => {
+                                                const taskState = engagement.taskProgress?.[idx]?.status;
                                                 const isSubmitted = taskState === 'submitted';
                                                 const isVerified = taskState === 'verified';
+                                                const isChangesRequested = taskState === 'changes_requested';
 
                                                 return (
-                                                    <div key={idx} className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isSubmitted ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/10 dark:border-yellow-800' : 'bg-white dark:bg-neutral-900 border-neutral-100 dark:border-neutral-800'}`}>
+                                                    <div key={idx} className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isSubmitted ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/10 dark:border-yellow-800' : isChangesRequested ? 'bg-red-50 border-red-200' : 'bg-white dark:bg-neutral-900 border-neutral-100 dark:border-neutral-800'}`}>
                                                         <div className="flex items-start gap-3">
                                                             <div className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center ${isVerified ? 'bg-green-500 border-green-500 text-white' : 'border-neutral-300'}`}>
                                                                 {isVerified && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -149,51 +248,23 @@ const ActiveWork = () => {
                                                             {isVerified ? (
                                                                 <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50">Verified</Badge>
                                                             ) : isSubmitted ? (
-                                                                <Dialog>
-                                                                    <DialogTrigger asChild>
-                                                                        <Button size="sm" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200">
-                                                                            Review & Verify
-                                                                        </Button>
-                                                                    </DialogTrigger>
-                                                                    <DialogContent>
-                                                                        <DialogHeader>
-                                                                            <DialogTitle>Verify Milestone Completion</DialogTitle>
-                                                                            <DialogDescription>
-                                                                                Please confirm that the candidate has satisfactorily completed this task. verifying this will unlock the next steps for the candidate.
-                                                                            </DialogDescription>
-                                                                        </DialogHeader>
-                                                                        <div className="py-2 space-y-4">
-                                                                            <div className="p-4 bg-muted/50 rounded-lg border">
-                                                                                <p className="font-medium text-sm mb-1">Task:</p>
-                                                                                <p className="text-muted-foreground">{task.description}</p>
-                                                                            </div>
-
-                                                                            {engagement.taskProgress[idx]?.submissionNote && (
-                                                                                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900">
-                                                                                    <div className="flex items-center gap-2 mb-2 text-blue-700 dark:text-blue-300">
-                                                                                        <FileText className="w-4 h-4" />
-                                                                                        <p className="font-semibold text-sm">Review Candidate Note</p>
-                                                                                    </div>
-                                                                                    <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed">
-                                                                                        {engagement.taskProgress[idx].submissionNote}
-                                                                                    </p>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                        <DialogFooter>
-                                                                            <Button onClick={() => handleVerifyTask(engagement.jobId, engagement.id, idx)} className="w-full bg-green-600 hover:bg-green-700">
-                                                                                <CheckCircle2 className="w-4 h-4 mr-2" /> Confirm & Verify Work
-                                                                            </Button>
-                                                                        </DialogFooter>
-                                                                    </DialogContent>
-                                                                </Dialog>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200"
+                                                                    onClick={() => openReviewDialog(engagement, task, idx)}
+                                                                >
+                                                                    Review & Verify
+                                                                </Button>
+                                                            ) : isChangesRequested ? (
+                                                                <Badge variant="outline" className="border-red-200 text-red-700 bg-red-50">Requested Changes</Badge>
                                                             ) : (
                                                                 <span className="text-xs text-muted-foreground italic">Not started</span>
                                                             )}
                                                         </div>
                                                     </div>
                                                 );
-                                            })}
+                                            })
+                                            )}
                                         </div>
                                     </div>
 
@@ -218,6 +289,51 @@ const ActiveWork = () => {
                     })
                 )}
             </div>
+
+            {/* Review Dialog */}
+            <Dialog open={!!reviewState} onOpenChange={(open) => !open && setReviewState(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Review Task</DialogTitle>
+                        <DialogDescription>Review the candidate's work and provide feedback.</DialogDescription>
+                    </DialogHeader>
+                    
+                    {reviewState && (
+                        <div className="py-2 space-y-4">
+                            <div className="p-4 bg-muted/50 rounded-lg border">
+                                <p className="font-medium text-sm mb-1">Task Description:</p>
+                                <p className="text-muted-foreground text-sm">{reviewState.task.description}</p>
+                            </div>
+
+                            {reviewState.candidateNote && (
+                                <div className="p-4 bg-blue-50 text-blue-900 rounded-lg border border-blue-100">
+                                    <p className="font-semibold text-xs mb-1">Candidate Note:</p>
+                                    <p className="text-sm">{reviewState.candidateNote}</p>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Recruiter Feedback (Optional):</label>
+                                <textarea 
+                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    placeholder="Provide feedback or request changes..."
+                                    value={feedback}
+                                    onChange={(e) => setFeedback(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleVerifyTask(reviewState.engagement.jobId, reviewState.engagement.id, reviewState.globalIndex, 'changes_requested')}>
+                            Request Changes
+                        </Button>
+                        <Button onClick={() => handleVerifyTask(reviewState.engagement.jobId, reviewState.engagement.id, reviewState.globalIndex, 'verified')} className="bg-green-600 hover:bg-green-700">
+                            <CheckCircle2 className="w-4 h-4 mr-2" /> Approve & Verify
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
