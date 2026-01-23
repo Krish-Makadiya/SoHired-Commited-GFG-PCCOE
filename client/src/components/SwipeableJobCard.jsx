@@ -24,7 +24,9 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
     };
 
     const getBudgetBreakdown = (budgetStr) => {
-        const raw = parseFloat(budgetStr?.replace(/[^0-9.]/g, '') || 0);
+        // Safe conversion to string to handle numbers or falsy values
+        const strVal = String(budgetStr || "0");
+        const raw = parseFloat(strVal.replace(/[^0-9.]/g, '') || 0);
         return {
             total: raw.toLocaleString(),
             main: (raw * 0.9).toLocaleString(),
