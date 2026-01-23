@@ -57,10 +57,12 @@ const MyInsights = () => {
 
         rawApplications.forEach(app => {
             // Status counts
-            if (["Hired", "Work Submitted", "Completed"].includes(app.status)) {
+            if (["Hired", "Work Submitted", "Completed", "Verified"].includes(app.status)) {
                 activeProjects++;
             }
-            if (app.status === "Hired" && (app.taskProgress && Object.values(app.taskProgress).every(t => t.status === 'verified'))) {
+            // A project is completed if status is Completed OR all work verified
+            // (Simplified check)
+            if (app.status === "Completed") {
                 completedProjects++;
             }
 
@@ -73,40 +75,103 @@ const MyInsights = () => {
                 budget = app.bidAmount;
             }
 
-            if (budget > 0 && app.tasks && app.taskProgress) {
-                app.tasks.forEach((task, index) => {
-                    const progress = app.taskProgress[index];
-                    const payoutStr = task.payout ? String(task.payout) : "0";
-                    let amount = 0;
+            if (budget > 0) {
+                // MODULAR LOGIC
+                if (app.modules && app.modules.length > 0) {
+                    let globalTaskIndex = 0;
 
-                    if (payoutStr.includes('%')) {
-                        const payoutPercent = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) / 100;
-                        amount = budget * payoutPercent;
-                    } else {
-                        amount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
-                    }
+                    app.modules.forEach((module, mIdx) => {
+                        let moduleTotal = 0;
+                        let moduleVerifiedTasks = 0;
+                        let moduleLastUpdate = null;
+                        const moduleTaskCount = module.tasks.length;
 
-                    if (progress?.status === 'verified') {
-                        totalEarnings += amount;
-
-                        // Add to timeline
-                        const date = progress.updatedAt ? format(parseISO(progress.updatedAt), 'MMM dd') : 'Recent';
-                        const month = progress.updatedAt ? format(parseISO(progress.updatedAt), 'MMM yyyy') : 'General';
-
-                        timelineMap[month] = (timelineMap[month] || 0) + amount;
-
-                        payouts.push({
-                            id: `${app.id}-${index}`,
-                            project: app.projectTitle,
-                            task: task.description,
-                            amount: amount,
-                            date: progress.updatedAt ? new Date(progress.updatedAt) : new Date(),
-                            status: "Released"
+                        // Iterate tasks in this module
+                        module.tasks.forEach((task) => {
+                            const progress = app.taskProgress?.[globalTaskIndex];
+                            
+                            // Calculate task amount
+                            const payoutStr = task.payout ? String(task.payout) : "0";
+                            let amount = 0;
+                            if (payoutStr.includes('%')) {
+                                const payoutPercent = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) / 100;
+                                amount = budget * payoutPercent;
+                            } else {
+                                amount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
+                            }
+                            moduleTotal += amount;
+                            
+                            if (progress?.status === 'verified') {
+                                moduleVerifiedTasks++;
+                                if (progress.updatedAt) {
+                                    const d = new Date(progress.updatedAt);
+                                    if (!moduleLastUpdate || d > moduleLastUpdate) {
+                                        moduleLastUpdate = d;
+                                    }
+                                }
+                            }
+                            
+                            globalTaskIndex++; // Increment for next task
                         });
-                    } else if (app.status === 'Hired') {
-                        pendingEarnings += amount;
-                    }
-                });
+
+                        // CORE CHANGE: Only count earning if ALL tasks in module are verified
+                        if (moduleVerifiedTasks === moduleTaskCount && moduleTaskCount > 0) {
+                            totalEarnings += moduleTotal;
+
+                            // Add to timeline
+                            const date = moduleLastUpdate ? format(moduleLastUpdate, 'MMM dd') : 'Recent';
+                            const month = moduleLastUpdate ? format(moduleLastUpdate, 'MMM yyyy') : 'General';
+                            timelineMap[month] = (timelineMap[month] || 0) + moduleTotal;
+
+                            payouts.push({
+                                id: `${app.id}-mod-${mIdx}`,
+                                project: app.projectTitle,
+                                task: `${module.title} (Module Complete)`, // Display Module Name
+                                amount: moduleTotal,
+                                date: moduleLastUpdate || new Date(),
+                                status: "Released"
+                            });
+                        } else {
+                            // Any verified tasks in an incomplete module are technically "pending" release
+                            // Or simpler: The whole module value is pending until completion?
+                            // Let's count the whole module value as pending if it's active.
+                            pendingEarnings += moduleTotal;
+                        }
+                    });
+
+                } else if (app.tasks) {
+                     // LEGACY / FLAT TASK LOGIC (Fallback)
+                     app.tasks.forEach((task, index) => {
+                        const progress = app.taskProgress?.[index];
+                        const payoutStr = task.payout ? String(task.payout) : "0";
+                        let amount = 0;
+
+                        if (payoutStr.includes('%')) {
+                            const payoutPercent = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) / 100;
+                            amount = budget * payoutPercent;
+                        } else {
+                            amount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
+                        }
+
+                        if (progress?.status === 'verified') {
+                            totalEarnings += amount;
+
+                            const month = progress.updatedAt ? format(parseISO(progress.updatedAt), 'MMM yyyy') : 'General';
+                            timelineMap[month] = (timelineMap[month] || 0) + amount;
+
+                            payouts.push({
+                                id: `${app.id}-${index}`,
+                                project: app.projectTitle,
+                                task: task.description,
+                                amount: amount,
+                                date: progress.updatedAt ? new Date(progress.updatedAt) : new Date(),
+                                status: "Released"
+                            });
+                        } else if (app.status === 'Hired') {
+                            pendingEarnings += amount;
+                        }
+                    });
+                }
             }
         });
 
@@ -114,7 +179,7 @@ const MyInsights = () => {
         const earningsChartData = Object.keys(timelineMap).map(key => ({
             name: key,
             amount: timelineMap[key]
-        })).sort((a, b) => new Date(a.name) - new Date(b.name)); // Rough sort, relies on date string parsing usually
+        })).sort((a, b) => new Date(a.name) - new Date(b.name));
 
         // Status Distribution
         const statusCounts = rawApplications.reduce((acc, app) => {
@@ -139,7 +204,7 @@ const MyInsights = () => {
             },
             earningsData: earningsChartData.length > 0 ? earningsChartData : [{ name: 'No Data', amount: 0 }],
             statusData: statusChartData,
-            payoutHistory: payouts.slice(0, 5)
+            payoutHistory: payouts.slice(0, 10) // Show top 10 recent
         };
     }, [rawApplications]);
 

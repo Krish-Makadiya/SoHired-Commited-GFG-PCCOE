@@ -59,26 +59,53 @@ const RecruiterDashboard = () => {
 
         activeWork.forEach(engagement => {
             // Check for new Modular structure
-            if (engagement.modules && Array.isArray(engagement.modules)) {
-                engagement.modules.forEach(module => {
-                     // Check module progress/status if we track it at module level
-                     // For now, tracking at task level inside modules
+            if (engagement.modules && Array.isArray(engagement.modules) && engagement.modules.length > 0) {
+                let globalTaskIndex = 0;
+                
+                engagement.modules.forEach((module, mIdx) => {
+                     let moduleTotal = 0;
+                     let moduleVerifiedTasks = 0;
+                     let moduleLastUpdate = null;
+                     const moduleTaskCount = module.tasks.length;
+                     const moduleTitle = module.title || `Module ${mIdx + 1}`;
+
                      module.tasks.forEach(task => {
                         const payoutStr = String(task.payout || "0");
                         const payoutAmount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
-                        
-                        // We need to know which checks/progress map to this task. 
-                        // If progress tracking is still a flat map or nested.
-                        // Assuming flat map for now needs update? 
-                        // Actually, if we refactor data, we likely need to refactor progress tracking too.
-                        // For this step, I will assume if 'status' is 'Paid/Verified' on the task itself or via a progress map.
-                        // Let's assume the engagement object structure has also been updated or we need to look for it.
-                        
-                        // simplified: 
-                        if (engagement.status === 'Hired' || engagement.status === 'Work Submitted') {
-                             pendingCommitment += payoutAmount;
+                        moduleTotal += payoutAmount;
+
+                        // Check verification status from taskProgress
+                        const progress = engagement.taskProgress?.[globalTaskIndex];
+                        if (progress?.status === 'verified') {
+                            moduleVerifiedTasks++;
+                            if (progress.updatedAt) {
+                                const d = new Date(progress.updatedAt);
+                                if (!moduleLastUpdate || d > moduleLastUpdate) {
+                                    moduleLastUpdate = d;
+                                }
+                            }
                         }
+                        
+                        globalTaskIndex++; // Increment for mapping
                      });
+
+                     // CORE LOGIC: Spending is "Spent" only if FULL MODULE is verified
+                     if (moduleVerifiedTasks === moduleTaskCount && moduleTaskCount > 0) {
+                        totalSpent += moduleTotal;
+
+                        payouts.push({
+                            id: `${engagement.id}-mod-${mIdx}`,
+                            project: engagement.jobTitle,
+                            candidate: engagement.candidateName,
+                            task: `${moduleTitle} (Module Complete)`, // Grouped Payout
+                            amount: moduleTotal,
+                            date: moduleLastUpdate || new Date(),
+                            status: "Paid"
+                        });
+                     } else if (engagement.status === 'Hired' || engagement.status === 'Work Submitted' || engagement.status === 'Shortlisted') {
+                         // Otherwise it's pending/committed
+                         pendingCommitment += moduleTotal;
+                     }
                 });
             } 
             // Fallback for flat tasks
@@ -125,7 +152,7 @@ const RecruiterDashboard = () => {
         // Funnel Data
         // Approximations based on available data
         const interviewed = activeWork.filter(e => e.status === 'Interview').length;
-        const hired = activeWork.filter(e => ["Hired", "Work Submitted", "Completed"].includes(e.status)).length;
+        const hired = activeWork.filter(e => ["Hired", "Work Submitted", "Completed", "Verified"].includes(e.status)).length;
 
         // We don't have exact 'Shortlisted' count easily without fetching all applicants, 
         // using activeWork length as a proxy for 'In Progress' candidates
