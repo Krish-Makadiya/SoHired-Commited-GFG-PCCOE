@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Select } from "@/ui/select";
-import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap, EyeOff, Lock, ShieldCheck, Phone } from "lucide-react";
 import { Input } from "@/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 import { useSearchParams } from 'react-router-dom';
@@ -27,6 +27,7 @@ const Applications = () => {
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [candidatePortfolio, setCandidatePortfolio] = useState([]);
     const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+    const [selectedInterviewCandidate, setSelectedInterviewCandidate] = useState(null);
 
     useEffect(() => {
         if (selectedCandidate) {
@@ -390,6 +391,17 @@ const Applications = () => {
                                                 View Profile
                                             </Button>
 
+                                            {candidate.interviewScore !== undefined && (
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-200"
+                                                    onClick={() => setSelectedInterviewCandidate(candidate)}
+                                                >
+                                                    <Phone className="w-4 h-4 mr-2" />
+                                                    View Interview
+                                                </Button>
+                                            )}
+
                                             {/* Actions based on Phases */}
                                             {/* Phase 1: Initial (Job is Active) - Only Shortlisting allowed */}
                                             {jobStatus === 'Active' && candidate.status === 'Applied' && (
@@ -488,6 +500,63 @@ const Applications = () => {
                                         <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed italic">
                                             "{selectedCandidate.suitabilityAnalysis}"
                                         </p>
+                                    </div>
+                                )}
+
+                                {/* Interview Analysis */}
+                                {selectedCandidate.interviewScore !== undefined && (
+                                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-100 dark:border-purple-900 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="font-semibold text-purple-900 dark:text-purple-100 flex items-center gap-2">
+                                                <Phone className="w-4 h-4 text-purple-500" /> AI Interview Analysis
+                                            </h3>
+                                            <Badge className={`text-base px-3 py-1 ${selectedCandidate.interviewScore >= 80 ? "bg-purple-600" :
+                                                selectedCandidate.interviewScore >= 50 ? "bg-amber-500" : "bg-red-500"
+                                                } hover:brightness-110`}>
+                                                {selectedCandidate.interviewScore}/100 Score
+                                            </Badge>
+                                        </div>
+                                        <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed italic mb-3">
+                                            "{selectedCandidate.interviewSummary}"
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <div>
+                                                <span className="font-semibold block mb-1">Strengths</span>
+                                                <ul className="list-disc pl-3">
+                                                    {selectedCandidate.interviewStrengths?.map((s, i) => <li key={i}>{s}</li>)}
+                                                </ul>
+                                            </div>
+                                            <div>
+                                                <span className="font-semibold block mb-1">Weaknesses</span>
+                                                <ul className="list-disc pl-3">
+                                                    {selectedCandidate.interviewWeaknesses?.map((w, i) => <li key={i}>{w}</li>)}
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        {selectedCandidate.interviewTranscript && (
+                                            <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="w-full text-xs h-6">View Transcript</Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="max-w-lg">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Interview Transcript</DialogTitle>
+                                                        </DialogHeader>
+                                                        <div className="h-[300px] overflow-y-auto bg-neutral-100 p-2 rounded text-xs space-y-2">
+                                                            {selectedCandidate.interviewTranscript.map((msg, i) => (
+                                                                <p key={i}>
+                                                                    <span className="font-bold uppercase mr-1">{msg.role}:</span>
+                                                                    {msg.text}
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -606,7 +675,74 @@ const Applications = () => {
                     })()}
                 </DialogContent>
             </Dialog>
-        </div>
+
+            {/* AI Interview Analysis Modal */}
+            <Dialog open={!!selectedInterviewCandidate} onOpenChange={(open) => !open && setSelectedInterviewCandidate(null)}>
+                <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>AI Interview Analysis</DialogTitle>
+                        <DialogDescription>
+                            Review the automated technical interview results for {selectedInterviewCandidate?.firstName} {selectedInterviewCandidate?.lastName}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedInterviewCandidate && (
+                        <div className="space-y-6">
+                            <div className="flex flex-col items-center justify-center py-4 space-y-2 border-b">
+                                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full border-4 font-bold text-3xl ${selectedInterviewCandidate.interviewScore >= 80 ? "bg-green-100 border-green-500 text-green-700" :
+                                    selectedInterviewCandidate.interviewScore >= 50 ? "bg-amber-100 border-amber-500 text-amber-700" :
+                                        "bg-red-100 border-red-500 text-red-700"
+                                    }`}>
+                                    {selectedInterviewCandidate.interviewScore}
+                                </div>
+                                <span className="text-sm font-medium text-muted-foreground">Technical Score</span>
+                            </div>
+
+                            <div className="bg-neutral-50 dark:bg-neutral-900 p-4 rounded-lg">
+                                <h4 className="font-semibold text-sm mb-2 text-primary flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4" /> AI Summary
+                                </h4>
+                                <p className="text-sm italic text-muted-foreground leading-relaxed">
+                                    "{selectedInterviewCandidate.interviewSummary}"
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <h4 className="font-semibold text-green-600 dark:text-green-400 text-sm flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4" /> Strengths
+                                    </h4>
+                                    <ul className="text-sm space-y-1 list-disc pl-4 text-neutral-600 dark:text-neutral-300">
+                                        {selectedInterviewCandidate.interviewStrengths?.map((s, i) => <li key={i}>{s}</li>)}
+                                    </ul>
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className="font-semibold text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
+                                        <ShieldCheck className="w-4 h-4" /> Weaknesses
+                                    </h4>
+                                    <ul className="text-sm space-y-1 list-disc pl-4 text-neutral-600 dark:text-neutral-300">
+                                        {selectedInterviewCandidate.interviewWeaknesses?.map((w, i) => <li key={i}>{w}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {selectedInterviewCandidate.interviewTranscript && (
+                                <div className="pt-4 border-t">
+                                    <h4 className="font-semibold text-sm mb-2 text-muted-foreground uppercase tracking-wider">Interview Transcript</h4>
+                                    <div className="h-48 overflow-y-auto bg-neutral-100 dark:bg-neutral-950 p-3 rounded-md text-xs space-y-3">
+                                        {selectedInterviewCandidate.interviewTranscript.map((msg, i) => (
+                                            <p key={i}>
+                                                <span className={`font-bold uppercase mr-1 ${msg.role === 'assistant' ? 'text-blue-600' : 'text-green-600'}`}>{msg.role}:</span>
+                                                {msg.text}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 };
 

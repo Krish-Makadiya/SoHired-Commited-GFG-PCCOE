@@ -17,6 +17,7 @@ import {
     analyzeSubmissionController,
     updateTaskProgressController,
     getRecruiterActiveWorkController,
+    analyzeInterviewController,
 } from "../controllers/jobs.controller.js";
 
 const router = Router();
@@ -32,6 +33,10 @@ router.get("/:jobId/applicants", getJobApplicantsController);
 router.patch(
     "/:jobId/applicants/:applicantId/analyze",
     analyzeSubmissionController,
+);
+router.post(
+    "/:jobId/applicants/:applicantId/analyze-interview",
+    analyzeInterviewController,
 );
 router.patch(
     "/:jobId/applicants/:applicantId/tasks",
