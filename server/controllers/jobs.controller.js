@@ -389,7 +389,7 @@ export const applyJobController = async (req, res) => {
         try {
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({
-                model: "gemini-2.5-flash-preview-09-2025",
+                model: "gemini-flash-latest",
                 generationConfig: { responseMimeType: "application/json" },
             });
 
@@ -989,6 +989,56 @@ export const getRecruiterActiveWorkController = async (req, res) => {
         console.error("Error fetching recruiter active work:", error);
         res.status(500).json({
             message: "Failed to fetch active work",
+            error: error.message,
+        });
+    }
+};
+
+export const switchCandidateController = async (req, res) => {
+    try {
+        const { jobId, oldCandidateId, newCandidateId } = req.body;
+
+        if (!jobId || !oldCandidateId || !newCandidateId) {
+            return res.status(400).json({
+                message: "Job ID, Old Candidate ID, and New Candidate ID are required"
+            });
+        }
+
+        const batch = db.batch();
+        const jobRef = db.collection("jobs").doc(jobId);
+
+        // Reference to old and new candidate documents
+        const oldCandidateRef = jobRef.collection("applicants").doc(oldCandidateId);
+        const newCandidateRef = jobRef.collection("applicants").doc(newCandidateId);
+
+        // 1. Mark old candidate as Terminated (removed from Active Work)
+        batch.update(oldCandidateRef, {
+            status: "Terminated",
+            terminatedAt: new Date().toISOString()
+        });
+
+        // 2. Mark new candidate as Shortlisted (added to Active Work)
+        // We also want to ensure they are fresh for the module?
+        // Assuming their progress is clean or they are picking up.
+        // Usually switching to a new candidate implies a fresh start for them on this job deployment.
+        batch.update(newCandidateRef, {
+            status: "Shortlisted",
+            switchedFrom: oldCandidateId,
+            switchedAt: new Date().toISOString()
+        });
+
+        await batch.commit();
+
+        res.status(200).json({
+            message: "Candidate switched successfully",
+            oldCandidateId,
+            newCandidateId
+        });
+
+    } catch (error) {
+        console.error("Error switching candidate:", error);
+        res.status(500).json({
+            message: "Failed to switch candidate",
             error: error.message,
         });
     }
