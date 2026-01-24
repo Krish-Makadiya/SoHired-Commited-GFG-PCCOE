@@ -23,24 +23,26 @@ export const onboardingController = async (req, res) => {
             return res.status(400).json({ message: "Clerk ID is required" });
         }
 
-        await db.collection("users").doc(clerkId).set(
-            {
-                role,
-                experienceLevel,
-                jobTypes,
-                skills,
-                companies,
-                countries,
-                firstName,
-                lastName,
-                email,
-                imageUrl,
-                summary,
-                workExperience,
-                education,
-            },
-            { merge: true },
-        );
+        const dataToSave = {
+            role,
+            experienceLevel,
+            jobTypes,
+            skills,
+            companies,
+            countries,
+            firstName,
+            lastName,
+            email,
+            imageUrl,
+            summary,
+            workExperience,
+            education,
+        };
+
+        // Remove undefined fields to avoid Firestore error
+        Object.keys(dataToSave).forEach(key => dataToSave[key] === undefined && delete dataToSave[key]);
+
+        await db.collection("users").doc(clerkId).set(dataToSave, { merge: true });
 
         console.log("Onboarding Data:", {
             role,
@@ -66,6 +68,9 @@ export const userProfileController = async (req, res) => {
         }
 
         console.log("Saving User Profile Data for:", clerkId);
+
+        // Remove undefined fields to avoid Firestore error
+        Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
 
         // Save to Firestore 'users' collection with clerkId as document ID
         await db.collection("users").doc(clerkId).set(data, { merge: true });
