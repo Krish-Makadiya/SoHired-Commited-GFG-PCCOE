@@ -58,12 +58,31 @@ export const generateSquadSuggestions = async (req, res) => {
 
         // 1. Fetch Candidates (Example: Fetch top 20 available candidates)
         // In a real app, we would filter by skills here first.
-        const usersSnapshot = await db.collection("users")
+        // 1. Fetch Candidates (Attempt strict match first, then relax)
+        let usersSnapshot = await db.collection("users")
             .where("role", "==", "Candidate")
             .limit(20)
             .get();
 
-        const candidates = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let candidates = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // RELAXATION LOGIC: If too few candidates, fetch broader pool (e.g., incomplete profiles or new users)
+        if (candidates.length < 5) {
+            console.log("⚠️ Too few candidates found. Relaxing search criteria...");
+            const broadSnapshot = await db.collection("users")
+                .limit(50)
+                .get();
+
+            const broadCandidates = [];
+            broadSnapshot.forEach(doc => {
+                const data = doc.data();
+                // Avoid duplicates and recruiters
+                if (!candidates.find(c => c.id === doc.id) && data.role !== "Recruiter") {
+                    broadCandidates.push({ id: doc.id, ...data });
+                }
+            });
+            candidates = [...candidates, ...broadCandidates];
+        }
 
         if (candidates.length < requiredRoles.length) {
             return res.status(200).json({ squads: [], message: "Not enough candidates to form a squad." });
@@ -252,24 +271,36 @@ export const updateSquadMemberStatus = async (req, res) => {
             // 1. Get Candidate Details
             const userDoc = await db.collection("users").doc(memberId).get();
             const userData = userDoc.data();
+            const squadRole = squadData.members.find(m => m.candidateId === memberId)?.roleName;
 
-            // 2. Add to 'applicants' subcollection so they appear in Recruiter View
-            // using 'Hired' or 'Shortlisted' status to imply they are part of the team
+            // 2. Add to job 'applicants' subcollection so they appear in Recruiter View
             await db.collection("jobs").doc(jobId).collection("applicants").doc(memberId).set({
                 id: memberId,
                 firstName: userData.firstName,
                 lastName: userData.lastName,
                 email: userData.email,
-                experienceLevel: userData.experienceLevel,
+                experienceLevel: userData.experienceLevel || "",
                 skills: userData.skills || [],
                 appliedAt: new Date().toISOString(),
                 status: "Hired", // Auto-hire for Collaborative Projects
                 role: "Candidate",
                 imageUrl: userData.imageUrl || "",
                 summary: userData.summary || "",
-                squadId: squadId, // Link to squad
-                squadRole: squadData.members.find(m => m.candidateId === memberId)?.roleName
+                squadId: squadId,
+                squadRole: squadRole
             });
+
+            // 3. Add to user's 'applied_jobs' for Dashboard Visibility
+            await db.collection("users").doc(memberId).collection("applied_jobs").doc(jobId).set({
+                jobId: jobId,
+                appliedAt: new Date().toISOString(),
+                status: "Hired",
+                isCollaborative: true,
+                squadId: squadId,
+                role: squadRole || "Member",
+                jobTitle: squadData.projectTitle || "Collaborative Project", // Assuming projectTitle is stored on squad or job
+                company: "ConnectX" // Or fetch from jobDoc if needed
+            }, { merge: true });
         }
 
         res.status(200).json({ message: "Status updated", squadStatus });
@@ -346,33 +377,40 @@ export const reportBlocker = async (req, res) => {
 export const getUserSquadInvites = async (req, res) => {
     try {
         const { userId } = req.params;
-        const snapshot = await db.collection("users").doc(userId).collection("squad_invites").where("status", "==", "Pending").get();
 
-        const invites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Fetch Pending Invites
+        const invitesSnapshot = await db.collection("users").doc(userId).collection("squad_invites")
+            .where("status", "==", "Pending")
+            .get();
 
-        // Enrich with squad details (like members) if needed, but for now returned stored invite data
-        // The invite stored has: jobId, role, squadId, status, invitedAt, projectTitle
+        // Fetch Accepted/Active Squads
+        const activeSnapshot = await db.collection("users").doc(userId).collection("squad_invites")
+            .where("status", "==", "Accepted")
+            .get();
 
-        // To show "Members" on the dashboard card, we might need to fetch the squadDoc or store members in the invite.
-        // Let's assume we fetch the squad doc for getting member avatars/names.
+        const processInvites = async (snapshot) => {
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            return await Promise.all(items.map(async (item) => {
+                const squadDoc = await db.collection("jobs").doc(item.jobId).collection("squads").doc(item.squadId).get();
+                const squadData = squadDoc.exists ? squadDoc.data() : {};
 
-        const detailedInvites = await Promise.all(invites.map(async (inv) => {
-            const squadDoc = await db.collection("jobs").doc(inv.jobId).collection("squads").doc(inv.squadId).get();
-            const squadData = squadDoc.exists ? squadDoc.data() : {};
+                return {
+                    ...item,
+                    harmonyScore: squadData.harmonyScore,
+                    members: squadData.members?.map(m => ({
+                        name: m.details?.firstName + " " + m.details?.lastName,
+                        role: m.roleName,
+                        avatar: m.details?.imageUrl || "https://github.com/shadcn.png"
+                    })) || [],
+                    description: squadData.reasoning || "No description available."
+                };
+            }));
+        };
 
-            return {
-                ...inv,
-                harmonyScore: squadData.harmonyScore,
-                members: squadData.members.map(m => ({
-                    name: m.details?.firstName + " " + m.details?.lastName,
-                    role: m.roleName,
-                    avatar: m.details?.imageUrl || "https://github.com/shadcn.png"
-                })),
-                description: squadData.reasoning || "No description available."
-            };
-        }));
+        const invites = await processInvites(invitesSnapshot);
+        const activeSquads = await processInvites(activeSnapshot);
 
-        res.status(200).json({ invites: detailedInvites });
+        res.status(200).json({ invites, activeSquads });
     } catch (error) {
         console.error("Error fetching invites:", error);
         res.status(500).json({ message: "Failed to fetch invites" });
